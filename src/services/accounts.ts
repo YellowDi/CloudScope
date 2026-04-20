@@ -49,10 +49,15 @@ export async function getAccounts() {
 }
 
 export async function createAccount(payload: CreateAccountPayload) {
-  return request<CloudAccount, CreateAccountPayload>({
-    path: '/api/accounts/create',
+  return request<unknown, { Name: string; Region: string; SecretId: string; SecretKey: string }>({
+    path: '/api/tencentaccount/new',
     method: 'POST',
-    body: payload,
+    body: {
+      Name: payload.name,
+      Region: payload.region,
+      SecretId: payload.secretId,
+      SecretKey: payload.secretKey,
+    },
   });
 }
 

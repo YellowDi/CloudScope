@@ -4,7 +4,7 @@
       <div class="flex min-w-0 flex-col border-b border-border">
         <div class="flex min-w-0 justify-between gap-x-4 gap-y-3 pb-2 [flex-wrap:nowrap] items-center sm:items-end">
           <div class="min-w-0 flex flex-1 items-baseline gap-x-2 overflow-hidden">
-            <h1 class="shrink-0 whitespace-nowrap leading-none font-semibold tracking-tight text-foreground text-[32px] sm:text-[40px] xl:text-[48px]">
+            <h1 class="shrink-0 whitespace-nowrap leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
               云账号管理
             </h1>
             <p class="hidden min-w-0 flex-1 truncate text-[18px] leading-none font-normal text-muted-foreground sm:inline sm:text-[20px]">
@@ -12,7 +12,14 @@
             </p>
           </div>
 
-          <div class="ml-auto flex min-w-0 shrink-0 justify-end">
+          <div class="ml-auto flex min-w-0 shrink-0 justify-end gap-2">
+            <Button
+              variant="default"
+              class="h-8 px-3 text-[14px]"
+              @click="openCreateDialog"
+            >
+              添加云账号
+            </Button>
             <Button
               variant="outline"
               class="h-8 gap-1 px-3 text-[14px]"
@@ -109,22 +116,96 @@
         </Card>
       </div>
     </div>
+
+    <Dialog :open="createDialogOpen" @update:open="handleDialogOpenChange">
+      <DialogContent class="sm:max-w-xl" :show-close-button="!submitting">
+        <DialogHeader class="pr-8">
+          <DialogTitle>添加云账号</DialogTitle>
+          <DialogDescription>
+            填写账号名称、地域和腾讯云访问凭据，提交后将调用真实接口创建账号。
+          </DialogDescription>
+        </DialogHeader>
+
+        <form class="grid gap-4" @submit.prevent="handleCreateAccount">
+          <BaseInput
+            v-model="form.name"
+            label="账号名称"
+            placeholder="如：生产主账号"
+            autocomplete="organization"
+          />
+          <BaseInput
+            v-model="form.region"
+            label="地域"
+            placeholder="如：ap-guangzhou"
+            autocomplete="off"
+          />
+          <BaseInput
+            v-model="form.secretId"
+            label="SecretId"
+            placeholder="请输入腾讯云 SecretId"
+            autocomplete="off"
+          />
+          <BaseInput
+            v-model="form.secretKey"
+            label="SecretKey"
+            type="password"
+            placeholder="请输入腾讯云 SecretKey"
+            autocomplete="off"
+          />
+
+          <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
+
+          <DialogFooter class="pt-2">
+            <Button type="button" variant="outline" :disabled="submitting" @click="handleCancelCreate">
+              取消
+            </Button>
+            <BaseButton
+              label="确认添加"
+              type="submit"
+              :loading="submitting"
+              loading-text="添加中"
+            />
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { LoaderCircle } from 'lucide-vue-next';
+import BaseButton from '@/components/BaseButton.vue';
+import BaseInput from '@/components/BaseInput.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonLoader from '@/components/SkeletonLoader.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAccountsStore } from '@/store/accounts';
+import { useAppStore } from '@/store/app';
 import { formatDateTime } from '@/utils/time';
 
 const accountsStore = useAccountsStore();
+const appStore = useAppStore();
 const tableError = ref('');
+const formError = ref('');
+const submitting = ref(false);
+const createDialogOpen = ref(false);
+const form = reactive({
+  name: '',
+  region: 'ap-guangzhou',
+  secretId: '',
+  secretKey: '',
+});
 const rows = computed(() => accountsStore.accountList);
 
 async function reloadAccounts() {
@@ -133,6 +214,65 @@ async function reloadAccounts() {
     await accountsStore.hydrateFromService();
   } catch (error) {
     tableError.value = error instanceof Error ? error.message : '拉取账号失败';
+  }
+}
+
+function openCreateDialog() {
+  formError.value = '';
+  createDialogOpen.value = true;
+}
+
+function handleDialogOpenChange(open: boolean) {
+  if (submitting.value) {
+    return;
+  }
+
+  createDialogOpen.value = open;
+  if (!open) {
+    resetForm();
+  }
+}
+
+function handleCancelCreate() {
+  if (submitting.value) {
+    return;
+  }
+
+  createDialogOpen.value = false;
+  resetForm();
+}
+
+function resetForm() {
+  formError.value = '';
+  form.name = '';
+  form.region = 'ap-guangzhou';
+  form.secretId = '';
+  form.secretKey = '';
+}
+
+async function handleCreateAccount() {
+  formError.value = '';
+
+  if (!form.name.trim() || !form.region.trim() || !form.secretId.trim() || !form.secretKey.trim()) {
+    formError.value = '账号名称、地域、SecretId 和 SecretKey 不能为空';
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await accountsStore.addAccount({
+      name: form.name.trim(),
+      region: form.region.trim(),
+      secretId: form.secretId.trim(),
+      secretKey: form.secretKey.trim(),
+    });
+    appStore.setNotice('云账号已添加', 'info');
+    createDialogOpen.value = false;
+    resetForm();
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : '添加云账号失败';
+  } finally {
+    submitting.value = false;
   }
 }
 

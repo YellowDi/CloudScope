@@ -35,12 +35,8 @@ export const useAccountsStore = defineStore('accounts', () => {
   }
 
   async function addAccount(payload: CreateAccountPayload) {
-    const next = await createAccount(payload);
-    accountList.value = [...accountList.value, next];
-    if (!currentAccountId.value) {
-      currentAccountId.value = next.id;
-    }
-    persist();
+    await createAccount(payload);
+    await hydrateFromService();
   }
 
   async function removeAccount(accountId: string) {

@@ -1,4 +1,4 @@
-import type { RequestOptions } from '@/services/types';
+import type { CloudAccount, RequestOptions, TencentAccountListResponse } from '@/services/types';
 import { mockLogin } from './auth';
 import {
   createMockAccount,
@@ -36,6 +36,27 @@ function getTempCreditFlag(path: string) {
   return params.get('tempCredit') !== 'false';
 }
 
+function toTencentAccountListResponse(accounts: CloudAccount[]): TencentAccountListResponse {
+  return {
+    List: accounts.map((account, index) => ({
+      Balance: account.balance ?? 0,
+      CashAccountBalance: account.cashAccountBalance ?? 0,
+      CreatedAt: account.createdAt || account.lastSyncedAt,
+      FreezeAmount: account.freezeAmount ?? 0,
+      Id: account.recordId ?? index + 1,
+      Name: account.name,
+      OweAmount: account.oweAmount ?? 0,
+      PresentAccountBalance: account.presentAccountBalance ?? 0,
+      Region: account.region,
+      Status: account.statusCode ?? (account.status === 'connected' ? 1 : 0),
+      Uin: account.uin ? Number(account.uin) : 0,
+      UpdatedAt: account.updatedAt || account.lastSyncedAt,
+      Uuid: account.uuid || account.id,
+    })),
+    Total: accounts.length,
+  };
+}
+
 export async function handleMockRequest<TResponse>(
   options: RequestOptions & { headers?: MockHeaders },
 ): Promise<TResponse> {
@@ -52,8 +73,27 @@ export async function handleMockRequest<TResponse>(
     return (await listMockAccounts()) as TResponse;
   }
 
+  if (path === '/api/tencentaccount/list' && method === 'POST') {
+    return toTencentAccountListResponse(await listMockAccounts()) as TResponse;
+  }
+
   if (path === '/api/accounts/create' && method === 'POST') {
-    return (await createMockAccount(body as { name: string; region: string })) as TResponse;
+    return (await createMockAccount(body as {
+      name: string;
+      region: string;
+      secretId: string;
+      secretKey: string;
+    })) as TResponse;
+  }
+
+  if (path === '/api/tencentaccount/new' && method === 'POST') {
+    const payload = body as { Name: string; Region: string; SecretId: string; SecretKey: string };
+    return (await createMockAccount({
+      name: payload.Name,
+      region: payload.Region,
+      secretId: payload.SecretId,
+      secretKey: payload.SecretKey,
+    })) as TResponse;
   }
 
   if (path === '/api/accounts/delete' && method === 'POST') {

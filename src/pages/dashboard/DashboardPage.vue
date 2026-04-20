@@ -2,7 +2,7 @@
   <section class="flex flex-1 flex-col gap-6">
     <header class="flex flex-col gap-4">
       <div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-2">
-        <h1 class="leading-none font-semibold tracking-tight text-foreground text-[32px] sm:text-[40px] xl:text-[48px]">
+        <h1 class="leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
             资源总览
         </h1>
         <p class="max-w-3xl text-[18px] leading-none font-normal text-muted-foreground sm:text-[20px]">

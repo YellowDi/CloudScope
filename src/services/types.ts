@@ -34,6 +34,8 @@ export interface CloudAccount {
 export interface CreateAccountPayload {
   name: string;
   region: string;
+  secretId: string;
+  secretKey: string;
 }
 
 export interface TencentAccountListRequest {

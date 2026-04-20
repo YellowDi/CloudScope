@@ -163,7 +163,7 @@
               <Input
                 v-model="databaseSearchKeyword"
                 class="h-9 min-w-0 flex-1"
-                placeholder="搜索实例 ID、名称、类型、地址"
+                placeholder="搜索实例 ID、名称、类型、IP、可用区"
               />
               <div class="w-[5.5rem] shrink-0 sm:w-32">
                 <BaseSelect
@@ -209,8 +209,8 @@
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
-                <template #cell-createdAt="{ row }">
-                  {{ formatDateTime(String(row.createdAt)) }}
+                <template #cell-expiredTime="{ row }">
+                  {{ row.expiredTime ? formatDateTime(String(row.expiredTime)) : '--' }}
                 </template>
                 <template #empty>
                   <EmptyState
@@ -244,7 +244,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { getAccountBalanceResponse } from '@/services/billing';
 import { getCloudDashboardList } from '@/services/cloud-dashboard';
-import { getDatabaseList } from '@/services/database';
+import { getDatabaseDashboardList } from '@/services/database-dashboard';
 import { buildDashboardStats, translateAccountBalance } from '@/services/translators';
 import type { TableColumn } from '@/components/table-page/types';
 import type {
@@ -252,21 +252,14 @@ import type {
   CloudDashboardInstanceItem,
   CloudAccount,
   DashboardStats,
-  DatabaseListItem,
+  DatabaseDashboardInstanceItem,
   TencentAccountBalanceResponse,
 } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { formatCount, formatCurrencyFromCent } from '@/utils/format';
 import { formatDateTime } from '@/utils/time';
 
-type DashboardDatabaseRow = DatabaseListItem & {
-  rowId: string;
-  accountId: string;
-  account: string;
-};
-
 type DashboardAccountData = {
-  databaseList: DashboardDatabaseRow[];
   balance: TencentAccountBalanceResponse;
 };
 
@@ -275,7 +268,7 @@ const accountsStore = useAccountsStore();
 const stats = ref<DashboardStats | null>(null);
 const balanceSummary = ref<AccountBalanceSummary | null>(null);
 const cvmRows = ref<CloudDashboardInstanceItem[]>([]);
-const databaseRows = ref<DashboardDatabaseRow[]>([]);
+const databaseRows = ref<DatabaseDashboardInstanceItem[]>([]);
 const loading = ref(true);
 const refreshing = ref(false);
 const errorMessage = ref('');
@@ -310,9 +303,12 @@ const databaseColumns: TableColumn[] = [
   { key: 'name', label: '名称' },
   { key: 'type', label: '类型' },
   { key: 'status', label: '状态' },
-  { key: 'address', label: '地址' },
+  { key: 'publicIp', label: '公网 IP' },
+  { key: 'privateIp', label: '私网 IP' },
   { key: 'storage', label: '存储' },
-  { key: 'createdAt', label: '创建时间', tone: 'muted' },
+  { key: 'zone', label: '可用区', tone: 'muted' },
+  { key: 'chargeType', label: '计费模式', tone: 'muted' },
+  { key: 'expiredTime', label: '到期时间', tone: 'muted' },
 ];
 
 const isAllAccountsView = computed(() => activeScope.value === ALL_ACCOUNTS_SCOPE);
@@ -350,12 +346,16 @@ const cvmStatusOptions = [
   { label: '启动中', value: 'PENDING' },
 ];
 
-const databaseStatusOptions = [
-  { label: '全部状态', value: 'all' },
-  { label: '运行中', value: 'RUNNING' },
-  { label: '创建中', value: 'PENDING' },
-  { label: '隔离中', value: 'ISOLATED' },
-];
+const databaseStatusOptions = computed(() => {
+  const entries = Array.from(new Map(
+    databaseRows.value.map((item) => [item.statusCode, item.status] as const),
+  ).entries());
+
+  return [
+    { label: '全部状态', value: 'all' },
+    ...entries.map(([value, label]) => ({ label, value })),
+  ];
+});
 
 const databaseTypeOptions = computed(() => {
   const values = Array.from(new Set(databaseRows.value.map((item) => item.type)));
@@ -387,7 +387,7 @@ const filteredDatabaseRows = computed(() => {
   return databaseRows.value.filter((row) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [row.id, row.name, row.type, row.address, row.account]
+      [row.id, row.name, row.type, row.publicIp, row.privateIp, row.storage, row.zone, row.account]
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
@@ -496,22 +496,23 @@ function getTargetAccounts() {
   return accountsStore.accountList.filter((account) => account.id === activeScope.value);
 }
 
-function attachAccountToDatabaseRows(account: CloudAccount, rows: DatabaseListItem[]): DashboardDatabaseRow[] {
-  const accountLabel = `${account.name} · ${account.region}`;
-
-  return rows.map((row) => ({
-    ...row,
-    rowId: `${account.id}:${row.id}`,
-    accountId: account.id,
-    account: accountLabel,
-  }));
-}
-
 async function loadCloudDashboardRows(): Promise<CloudDashboardInstanceItem[]> {
   const scopedAccount = isAllAccountsView.value
     ? null
     : accountsStore.accountList.find((account) => account.id === activeScope.value) ?? null;
   const { list } = await getCloudDashboardList({
+    AccountUUID: scopedAccount?.uuid ?? scopedAccount?.id,
+    Full: true,
+  });
+
+  return list;
+}
+
+async function loadDatabaseDashboardRows(): Promise<DatabaseDashboardInstanceItem[]> {
+  const scopedAccount = isAllAccountsView.value
+    ? null
+    : accountsStore.accountList.find((account) => account.id === activeScope.value) ?? null;
+  const { list } = await getDatabaseDashboardList({
     AccountUUID: scopedAccount?.uuid ?? scopedAccount?.id,
     Full: true,
   });
@@ -576,10 +577,9 @@ function mergeAccountBalances(balances: TencentAccountBalanceResponse[]): Accoun
 }
 
 async function loadAccountDashboard(account: CloudAccount): Promise<DashboardAccountData> {
-  const [databaseList, balance] = await Promise.all([getDatabaseList(account.id), getAccountBalanceResponse(account.id)]);
+  const balance = await getAccountBalanceResponse(account.id);
 
   return {
-    databaseList: attachAccountToDatabaseRows(account, databaseList),
     balance,
   };
 }
@@ -604,8 +604,12 @@ async function loadData(isManual = false) {
   }
 
   try {
-    const [cvmResult, results] = await Promise.all([
+    const [cvmResult, databaseResult, results] = await Promise.all([
       loadCloudDashboardRows().then((value) => ({ status: 'fulfilled' as const, value })).catch((reason) => ({
+        status: 'rejected' as const,
+        reason,
+      })),
+      loadDatabaseDashboardRows().then((value) => ({ status: 'fulfilled' as const, value })).catch((reason) => ({
         status: 'rejected' as const,
         reason,
       })),
@@ -624,17 +628,19 @@ async function loadData(isManual = false) {
     ));
 
     cvmRows.value = cvmResult.status === 'fulfilled' ? cvmResult.value : [];
-    databaseRows.value = successful.flatMap((item) => item.databaseList);
+    databaseRows.value = databaseResult.status === 'fulfilled' ? databaseResult.value : [];
     loadedAccountCount.value = successful.length;
 
-    if (cvmResult.status === 'rejected' && successful.length === 0) {
+    if (cvmResult.status === 'rejected' && databaseResult.status === 'rejected' && successful.length === 0) {
       clearDashboardData();
-      errorMessage.value =
-        failedAccounts.length > 0
-          ? `云服务器列表与账号数据加载失败：${failedAccounts.join('、')}`
-          : cvmResult.reason instanceof Error
-            ? cvmResult.reason.message
-            : '加载统计失败';
+      const baseErrors = [
+        cvmResult.reason instanceof Error ? cvmResult.reason.message : '云服务器列表加载失败',
+        databaseResult.reason instanceof Error ? databaseResult.reason.message : '数据库列表加载失败',
+      ];
+      if (failedAccounts.length > 0) {
+        baseErrors.push(`账号数据加载失败：${failedAccounts.join('、')}`);
+      }
+      errorMessage.value = baseErrors.join('；');
       return;
     }
 
@@ -653,6 +659,11 @@ async function loadData(isManual = false) {
     if (cvmResult.status === 'rejected') {
       errorMessages.push(
         cvmResult.reason instanceof Error ? cvmResult.reason.message : '云服务器列表加载失败',
+      );
+    }
+    if (databaseResult.status === 'rejected') {
+      errorMessages.push(
+        databaseResult.reason instanceof Error ? databaseResult.reason.message : '数据库列表加载失败',
       );
     }
     if (failedAccounts.length > 0) {

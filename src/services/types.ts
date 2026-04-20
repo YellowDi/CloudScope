@@ -216,6 +216,56 @@ export interface CloudDashboardListResult {
   total: number;
 }
 
+export interface DashboardListReq {
+  AccountUUID?: string;
+  Full?: boolean;
+  PageNum?: number;
+  PageSize?: number;
+}
+
+export interface DatabaseDashboardInstanceRow {
+  AccountId?: number;
+  AccountName?: string;
+  AccountUuid?: string;
+  DataBaseType?: string;
+  DiskSize?: string;
+  ExpiredTime?: string;
+  InstanceChargeType?: string;
+  InstanceID?: string;
+  InstanceName?: string;
+  InstanceState?: string;
+  PrivateIpAddresses?: string;
+  PublicIpAddresses?: string;
+  Zone?: string;
+}
+
+export interface DatabaseDashboardListResponse {
+  List?: DatabaseDashboardInstanceRow[];
+  Total?: number;
+}
+
+export interface DatabaseDashboardInstanceItem {
+  rowId: string;
+  accountId: string;
+  account: string;
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  statusCode: string;
+  publicIp: string;
+  privateIp: string;
+  storage: string;
+  zone: string;
+  chargeType: string;
+  expiredTime: string;
+}
+
+export interface DatabaseDashboardListResult {
+  list: DatabaseDashboardInstanceItem[];
+  total: number;
+}
+
 export interface DatabaseListItem {
   id: string;
   name: string;

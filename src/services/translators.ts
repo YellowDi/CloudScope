@@ -7,6 +7,10 @@ import type {
   CloudInstanceRow,
   CvmListItem,
   DashboardStats,
+  DatabaseDashboardInstanceItem,
+  DatabaseDashboardInstanceRow,
+  DatabaseDashboardListResponse,
+  DatabaseDashboardListResult,
   DatabaseListItem,
   TencentAccountBalanceResponse,
   TencentCvmResponse,
@@ -109,6 +113,50 @@ export function translateDatabaseList(response: TencentDbResponse): DatabaseList
     storage: formatStorage(instance.Volume),
     createdAt: instance.CreateTime,
   }));
+}
+
+function normalizeDatabaseDashboardStatus(status?: string): DatabaseDashboardInstanceItem['status'] {
+  if (!status) {
+    return '未知';
+  }
+
+  return DB_STATUS_MAP[status] ?? status;
+}
+
+function normalizeDatabaseDashboardType(instance: DatabaseDashboardInstanceRow): string {
+  return instance.DataBaseType?.trim() || '--';
+}
+
+export function translateDatabaseDashboardList(
+  response: DatabaseDashboardListResponse,
+): DatabaseDashboardListResult {
+  const list = (response.List ?? []).map((instance) => {
+    const accountId = instance.AccountUuid?.trim() || String(instance.AccountId ?? '').trim();
+    const id = instance.InstanceID?.trim() || '--';
+    const accountName = instance.AccountName?.trim();
+
+    return {
+      rowId: `${accountId || 'unknown'}:${id}`,
+      accountId,
+      account: accountName || accountId || '--',
+      id,
+      name: instance.InstanceName?.trim() || '--',
+      type: normalizeDatabaseDashboardType(instance),
+      status: normalizeDatabaseDashboardStatus(instance.InstanceState?.trim()),
+      statusCode: instance.InstanceState?.trim() || 'UNKNOWN',
+      publicIp: instance.PublicIpAddresses?.trim() || '--',
+      privateIp: instance.PrivateIpAddresses?.trim() || '--',
+      storage: instance.DiskSize?.trim() || '--',
+      zone: instance.Zone?.trim() || '--',
+      chargeType: instance.InstanceChargeType?.trim() || '--',
+      expiredTime: instance.ExpiredTime?.trim() || '',
+    };
+  });
+
+  return {
+    list,
+    total: response.Total ?? list.length,
+  };
 }
 
 export function buildDashboardStats(

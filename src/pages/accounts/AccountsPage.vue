@@ -94,7 +94,12 @@
             <div class="grid gap-3 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
               <div class="space-y-1">
                 <p class="text-xs uppercase tracking-wide">可用余额</p>
-                <p class="font-medium text-foreground">{{ formatCurrency(account.balance) }}</p>
+                <p
+                  class="font-medium"
+                  :class="isLowAvailableBalance(account.balance) ? 'text-destructive' : 'text-foreground'"
+                >
+                  {{ formatCurrency(account.balance) }}
+                </p>
               </div>
               <div class="space-y-1">
                 <p class="text-xs uppercase tracking-wide">现金余额</p>
@@ -433,6 +438,10 @@ function formatCurrency(value?: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function isLowAvailableBalance(value?: number) {
+  return typeof value === 'number' && !Number.isNaN(value) && value < 1000;
 }
 
 function formatStatus(statusCode?: number, fallback?: string) {

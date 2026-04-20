@@ -1,11 +1,14 @@
 <template>
   <Card class="border-border bg-muted shadow-none">
-    <CardContent class="flex min-w-0 flex-col gap-2 p-3">
-      <p class="truncate whitespace-nowrap text-xs text-muted-foreground">{{ label }}</p>
-      <SkeletonLoader v-if="loading" kind="text" :rows="2" />
+    <CardContent class="flex min-w-0 flex-col gap-1.5 p-2.5 sm:p-3">
+      <p class="truncate whitespace-nowrap text-[11px] leading-4 text-muted-foreground">{{ label }}</p>
+      <div v-if="loading" class="grid gap-1.5">
+        <Skeleton class="h-6 w-20 rounded-md sm:h-7 sm:w-24" />
+        <Skeleton class="h-3 w-32 rounded-md" />
+      </div>
       <template v-else>
-        <h3 class="truncate whitespace-nowrap text-2xl font-semibold tracking-tight text-foreground">{{ value }}</h3>
-        <p class="truncate whitespace-nowrap text-xs text-muted-foreground">{{ meta }}</p>
+        <h3 class="truncate whitespace-nowrap text-[22px] leading-none font-semibold tracking-tight text-foreground sm:text-2xl">{{ value }}</h3>
+        <p class="truncate whitespace-nowrap text-[11px] leading-4 text-muted-foreground">{{ meta }}</p>
       </template>
     </CardContent>
   </Card>
@@ -13,7 +16,7 @@
 
 <script setup lang="ts">
 import { Card, CardContent } from '@/components/ui/card';
-import SkeletonLoader from './SkeletonLoader.vue';
+import { Skeleton } from '@/components/ui/skeleton';
 
 withDefaults(
   defineProps<{

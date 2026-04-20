@@ -29,6 +29,7 @@ const CHARGE_TYPE_MAP: Record<string, string> = {
   PREPAID: '包年包月',
   POSTPAID_BY_HOUR: '按量计费',
 };
+const EXPIRING_SOON_DAYS = 30;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -298,8 +299,8 @@ export function translateDatabaseDashboardList(
 }
 
 export function buildDashboardStats(
-  cvmList: Array<{ statusCode: string }>,
-  databaseList: Array<{ statusCode: string }>,
+  cvmList: Array<{ statusCode: string; expiredTime?: string }>,
+  databaseList: Array<{ statusCode: string; expiredTime?: string }>,
 ): DashboardStats {
   const runningCount =
     cvmList.filter((item) => item.statusCode === 'RUNNING').length +
@@ -309,12 +310,35 @@ export function buildDashboardStats(
     cvmList.filter((item) => item.statusCode !== 'RUNNING').length +
     databaseList.filter((item) => item.statusCode !== 'RUNNING').length;
 
+  const expiringSoonCount =
+    cvmList.filter((item) => isExpiringSoon(item.expiredTime)).length +
+    databaseList.filter((item) => isExpiringSoon(item.expiredTime)).length;
+
   return {
     cvmTotal: cvmList.length,
     databaseTotal: databaseList.length,
     runningCount,
     abnormalCount,
+    expiringSoonCount,
   };
+}
+
+function isExpiringSoon(expiredTime?: string): boolean {
+  if (!expiredTime) {
+    return false;
+  }
+
+  const targetDate = new Date(expiredTime);
+  if (Number.isNaN(targetDate.getTime())) {
+    return false;
+  }
+
+  const today = new Date();
+  const targetDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dayDiff = Math.round((targetDay.getTime() - todayDay.getTime()) / (24 * 60 * 60 * 1000));
+
+  return dayDiff <= EXPIRING_SOON_DAYS;
 }
 
 export function translateAccountBalance(

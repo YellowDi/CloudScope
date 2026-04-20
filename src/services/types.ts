@@ -282,6 +282,7 @@ export interface DashboardStats {
   databaseTotal: number;
   runningCount: number;
   abnormalCount: number;
+  expiringSoonCount: number;
 }
 
 export interface TempAmountInfoItem {

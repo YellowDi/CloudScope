@@ -1,5 +1,5 @@
 <template>
-  <section class="-mt-8 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
+  <section class="-mt-8 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4">
     <header
       class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       :style="{ top: 'var(--table-page-sticky-top)' }"
@@ -90,58 +90,12 @@
         <AlertDescription>{{ errorMessage }}</AlertDescription>
       </Alert>
 
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="CVM 总数" :value="formatCount(stats.cvmTotal)" meta="腾讯云云服务器实例" :loading="cvmLoading" />
-        <StatCard label="数据库总数" :value="formatCount(stats.databaseTotal)" meta="TencentDB 实例" :loading="databaseLoading" />
-        <StatCard label="运行中实例数" :value="formatCount(stats.runningCount)" meta="跨资源聚合统计" :loading="aggregateStatsLoading" />
-        <StatCard label="异常实例数" :value="formatCount(stats.abnormalCount)" meta="所有非运行态实例" :loading="aggregateStatsLoading" />
-        <Card
-          class="cursor-pointer border-border bg-muted shadow-none transition-colors hover:border-primary/40"
-          @click="showBalanceCards = !showBalanceCards"
-        >
-          <CardContent class="flex min-w-0 flex-col gap-2 p-3">
-            <p class="truncate whitespace-nowrap text-xs text-muted-foreground">账户余额</p>
-            <template v-if="balanceLoading">
-              <h3 class="truncate whitespace-nowrap text-2xl font-semibold tracking-tight text-foreground">--</h3>
-              <p class="truncate whitespace-nowrap text-xs text-muted-foreground">点击展开现金、信用与欠费明细</p>
-            </template>
-            <template v-else>
-              <h3 class="truncate whitespace-nowrap text-2xl font-semibold tracking-tight text-foreground">
-                {{ balanceSummary?.availableBalance ?? '--' }}
-              </h3>
-              <p class="truncate whitespace-nowrap text-xs text-muted-foreground">
-                {{ showBalanceCards ? '点击收起现金、信用与欠费明细' : '点击展开现金、信用与欠费明细' }}
-              </p>
-            </template>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div v-if="showBalanceCards" class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="账户可用余额"
-          :value="balanceSummary?.availableBalance ?? '--'"
-          :meta="balanceAvailableMeta"
-          :loading="balanceLoading"
-        />
-        <StatCard
-          label="现金账户余额"
-          :value="balanceSummary?.cashBalance ?? '--'"
-          :meta="balanceCashMeta"
-          :loading="balanceLoading"
-        />
-        <StatCard
-          label="可用信用额度"
-          :value="balanceSummary?.creditBalance ?? '--'"
-          :meta="balanceCreditMeta"
-          :loading="balanceLoading"
-        />
-        <StatCard
-          label="欠费金额"
-          :value="balanceSummary?.oweAmount ?? '--'"
-          :meta="balanceOweMeta"
-          :loading="balanceLoading"
-        />
+      <div class="grid grid-cols-2 gap-2 md:gap-2.5 xl:grid-cols-5">
+        <StatCard label="CVM 总数" :value="formatCount(stats.cvmTotal)" meta="腾讯云云服务器实例" :loading="summaryCardsLoading" />
+        <StatCard label="数据库总数" :value="formatCount(stats.databaseTotal)" meta="TencentDB 实例" :loading="summaryCardsLoading" />
+        <StatCard label="运行中实例数" :value="formatCount(stats.runningCount)" meta="跨资源聚合统计" :loading="summaryCardsLoading" />
+        <StatCard label="异常实例数" :value="formatCount(stats.abnormalCount)" meta="所有非运行态实例" :loading="summaryCardsLoading" />
+        <StatCard label="即将到期实例" :value="formatCount(stats.expiringSoonCount)" meta="含已过期与 30 天内到期实例" :loading="summaryCardsLoading" />
       </div>
 
       <div class="flex min-h-0 flex-1 flex-col gap-4">
@@ -376,26 +330,18 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { getAccountBalanceResponse } from '@/services/billing';
 import { getCloudDashboardList } from '@/services/cloud-dashboard';
 import { getDatabaseDashboardList } from '@/services/database-dashboard';
-import { buildDashboardStats, translateAccountBalance } from '@/services/translators';
+import { buildDashboardStats } from '@/services/translators';
 import type { TableColumn } from '@/components/table-page/types';
 import type {
-  AccountBalanceSummary,
   CloudDashboardInstanceItem,
-  CloudAccount,
   DashboardStats,
   DatabaseDashboardInstanceItem,
-  TencentAccountBalanceResponse,
 } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
-import { formatCount, formatCurrencyFromCent } from '@/utils/format';
+import { formatCount } from '@/utils/format';
 import { formatDateTimeWithMinutes } from '@/utils/time';
-
-type DashboardAccountData = {
-  balance: TencentAccountBalanceResponse;
-};
 
 type ExpirationInfo = {
   dateText: string;
@@ -419,21 +365,17 @@ const DEFAULT_EXPIRATION_INFO: ExpirationInfo = {
   textClass: 'text-muted-foreground',
 };
 const accountsStore = useAccountsStore();
-const balanceSummary = ref<AccountBalanceSummary | null>(null);
 const cvmRows = ref<CloudDashboardInstanceItem[]>([]);
 const databaseRows = ref<DatabaseDashboardInstanceItem[]>([]);
 const cvmLoading = ref(true);
 const databaseLoading = ref(true);
-const balanceLoading = ref(true);
+const summaryCardsLoading = ref(true);
 const refreshing = ref(false);
 const cvmErrorMessage = ref('');
 const databaseErrorMessage = ref('');
-const balanceErrorMessage = ref('');
-const loadedAccountCount = ref(0);
 const showEmpty = computed(() => !accountsStore.loading && accountsStore.accountList.length === 0);
 const activeScope = ref(ALL_ACCOUNTS_SCOPE);
 const activeResourceTab = ref<'cvm' | 'database'>('cvm');
-const showBalanceCards = ref(false);
 const cvmSearchKeyword = ref('');
 const cvmStatusFilter = ref('all');
 const databaseSearchKeyword = ref('');
@@ -497,9 +439,8 @@ const resourceSwitchTabs = computed(() => [
   { id: 'database', label: '数据库', badge: formatCount(databaseRows.value.length) },
 ]);
 const stats = computed<DashboardStats>(() => buildDashboardStats(cvmRows.value, databaseRows.value));
-const aggregateStatsLoading = computed(() => cvmLoading.value || databaseLoading.value);
 const errorMessage = computed(() =>
-  [cvmErrorMessage.value, databaseErrorMessage.value, balanceErrorMessage.value]
+  [cvmErrorMessage.value, databaseErrorMessage.value]
     .filter(Boolean)
     .join('；'),
 );
@@ -651,40 +592,6 @@ const databaseEmptyDescription = computed(() =>
 const cvmTableSummary = computed(() => buildPageSummary(cvmPage.value, filteredCvmRows.value.length));
 const databaseTableSummary = computed(() => buildPageSummary(databasePage.value, filteredDatabaseRows.value.length));
 
-const balanceAvailableMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return '获取账户余额（Balance / RealBalance）';
-  }
-
-  return isAllAccountsView.value
-    ? `已聚合 ${formatCount(loadedAccountCount.value)} 个账号`
-    : `账户 UIN ${balanceSummary.value.uin}`;
-});
-
-const balanceCashMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return 'CashAccountBalance';
-  }
-
-  return `收益转入 ${balanceSummary.value.incomeBalance} / 赠送余额 ${balanceSummary.value.presentBalance}`;
-});
-
-const balanceCreditMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return 'CreditBalance / RealCreditBalance';
-  }
-
-  return `信用总额 ${balanceSummary.value.creditAmount} / 真实可用 ${balanceSummary.value.realCreditBalance}`;
-});
-
-const balanceOweMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return 'OweAmount / FreezeAmount / TempCredit';
-  }
-
-  return `冻结金额 ${balanceSummary.value.freezeAmount} / 临时额度 ${balanceSummary.value.tempCredit}`;
-});
-
 let loadSequence = 0;
 
 function resetCvmFilters() {
@@ -709,24 +616,13 @@ function handleResourceTabChange(value: string) {
 }
 
 function clearDashboardData() {
-  balanceSummary.value = null;
   cvmRows.value = [];
   databaseRows.value = [];
-  loadedAccountCount.value = 0;
 }
 
 function clearSectionErrors() {
   cvmErrorMessage.value = '';
   databaseErrorMessage.value = '';
-  balanceErrorMessage.value = '';
-}
-
-function getTargetAccounts() {
-  if (isAllAccountsView.value) {
-    return accountsStore.accountList;
-  }
-
-  return accountsStore.accountList.filter((account) => account.id === activeScope.value);
 }
 
 function buildPageSummary(page: number, total: number) {
@@ -847,70 +743,6 @@ async function loadDatabaseDashboardRows(): Promise<DatabaseDashboardInstanceIte
   return list;
 }
 
-function mergeAccountBalances(balances: TencentAccountBalanceResponse[]): AccountBalanceSummary | null {
-  if (balances.length === 0) {
-    return null;
-  }
-
-  const totals = balances.reduce(
-    (result, { Response: payload }) => {
-      result.balance += payload.Balance;
-      result.cashBalance += payload.CashAccountBalance;
-      result.incomeBalance += payload.IncomeIntoAccountBalance;
-      result.presentBalance += payload.PresentAccountBalance;
-      result.freezeAmount += payload.FreezeAmount;
-      result.oweAmount += payload.OweAmount;
-      result.creditAmount += payload.CreditAmount;
-      result.creditBalance += payload.CreditBalance;
-      result.realCreditBalance += payload.RealCreditBalance;
-      result.tempCredit += payload.TempCredit;
-      result.tempAmountInfoList.push(...payload.TempAmountInfoList);
-      return result;
-    },
-    {
-      balance: 0,
-      cashBalance: 0,
-      incomeBalance: 0,
-      presentBalance: 0,
-      freezeAmount: 0,
-      oweAmount: 0,
-      creditAmount: 0,
-      creditBalance: 0,
-      realCreditBalance: 0,
-      tempCredit: 0,
-      tempAmountInfoList: [] as TencentAccountBalanceResponse['Response']['TempAmountInfoList'],
-    },
-  );
-
-  return {
-    uin: `${balances.length} 个账号`,
-    availableBalance: formatCurrencyFromCent(totals.balance),
-    cashBalance: formatCurrencyFromCent(totals.cashBalance),
-    incomeBalance: formatCurrencyFromCent(totals.incomeBalance),
-    presentBalance: formatCurrencyFromCent(totals.presentBalance),
-    freezeAmount: formatCurrencyFromCent(totals.freezeAmount),
-    oweAmount: formatCurrencyFromCent(totals.oweAmount),
-    creditAmount: formatCurrencyFromCent(totals.creditAmount),
-    creditBalance: formatCurrencyFromCent(totals.creditBalance),
-    realCreditBalance: formatCurrencyFromCent(totals.realCreditBalance),
-    tempCredit: formatCurrencyFromCent(totals.tempCredit),
-    tempAmountInfoList: totals.tempAmountInfoList.map((item) => ({
-      uin: item.Uin,
-      tempAmount: formatCurrencyFromCent(item.TempAmount),
-      startTime: item.StartTime,
-      endTime: item.EndTime,
-    })),
-  };
-}
-
-async function loadAccountDashboard(account: CloudAccount): Promise<DashboardAccountData> {
-  const balance = await getAccountBalanceResponse(account.id);
-
-  return {
-    balance,
-  };
-}
-
 async function loadCvmSection(requestId: number, preserveExistingData: boolean) {
   try {
     const rows = await loadCloudDashboardRows();
@@ -963,65 +795,16 @@ async function loadDatabaseSection(requestId: number, preserveExistingData: bool
   }
 }
 
-async function loadBalanceSection(
-  requestId: number,
-  targetAccounts: CloudAccount[],
-  preserveExistingData: boolean,
-) {
-  try {
-    const results = await Promise.allSettled(targetAccounts.map((account) => loadAccountDashboard(account)));
-    if (requestId !== loadSequence) {
-      return;
-    }
-
-    const successful = results.flatMap((result) => (
-      result.status === 'fulfilled' ? [result.value] : []
-    ));
-    const failedDetails = results.flatMap((result, index) => {
-      if (result.status !== 'rejected') {
-        return [];
-      }
-
-      const reason = result.reason instanceof Error ? result.reason.message : '加载失败';
-      return [`${targetAccounts[index].name}（${reason}）`];
-    });
-
-    if (successful.length > 0) {
-      loadedAccountCount.value = successful.length;
-      const balanceResponses = successful.map((item) => item.balance);
-      balanceSummary.value =
-        !isAllAccountsView.value && balanceResponses.length === 1
-          ? translateAccountBalance(balanceResponses[0])
-          : mergeAccountBalances(balanceResponses);
-    } else if (!preserveExistingData) {
-      loadedAccountCount.value = 0;
-      balanceSummary.value = null;
-    }
-
-    if (failedDetails.length > 0) {
-      balanceErrorMessage.value =
-        successful.length > 0
-          ? `部分账号余额加载失败：${failedDetails.join('、')}`
-          : `账号余额加载失败：${failedDetails.join('、')}`;
-    }
-  } finally {
-    if (requestId === loadSequence) {
-      balanceLoading.value = false;
-    }
-  }
-}
-
 async function loadData(isManual = false) {
   const requestId = ++loadSequence;
-  const targetAccounts = getTargetAccounts();
   const preserveExistingData = isManual;
 
-  if (targetAccounts.length === 0) {
+  if (accountsStore.accountList.length === 0) {
     clearDashboardData();
     clearSectionErrors();
     cvmLoading.value = accountsStore.loading;
     databaseLoading.value = accountsStore.loading;
-    balanceLoading.value = accountsStore.loading;
+    summaryCardsLoading.value = accountsStore.loading;
     refreshing.value = false;
     return;
   }
@@ -1035,16 +818,20 @@ async function loadData(isManual = false) {
     resetDatabaseFilters();
     cvmLoading.value = true;
     databaseLoading.value = true;
-    balanceLoading.value = true;
+    summaryCardsLoading.value = true;
   }
 
   await Promise.allSettled([
     loadCvmSection(requestId, preserveExistingData),
     loadDatabaseSection(requestId, preserveExistingData),
-    loadBalanceSection(requestId, targetAccounts, preserveExistingData),
   ]);
 
+  if (requestId !== loadSequence) {
+    return;
+  }
+
   if (requestId === loadSequence) {
+    summaryCardsLoading.value = false;
     refreshing.value = false;
   }
 }

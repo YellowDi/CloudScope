@@ -201,27 +201,27 @@
                 />
               </button>
 
-              <div class="flex shrink-0 items-center gap-2">
+              <div class="flex shrink-0 items-center gap-1.5">
                 <TooltipWrap content="编辑账号">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    class="rounded-lg"
+                    class="size-7 rounded-md"
                     aria-label="编辑账号"
                     @click="openEditDialog(account)"
                   >
-                    <PencilLine class="h-4 w-4" />
+                    <PencilLine class="h-3.5 w-3.5" />
                   </Button>
                 </TooltipWrap>
 
                 <Button
                   type="button"
                   variant="outline"
-                  class="h-8 rounded-lg px-2.5 text-xs"
+                  class="h-7 w-auto shrink-0 justify-start gap-1 rounded-md px-0 text-[11px] has-[>svg]:pl-1 has-[>svg]:pr-1.75"
                   @click="handleQuickLogin(account)"
                 >
-                  <LogIn class="h-4 w-4" />
+                  <LogIn class="h-3.5 w-3.5" />
                   快捷登录
                 </Button>
               </div>

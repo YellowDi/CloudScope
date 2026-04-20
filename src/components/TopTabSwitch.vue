@@ -34,7 +34,6 @@ const LABEL_ONLY_TAB_MIN_WIDTH = 0;
 const measureRefs = ref<Array<HTMLElement | null>>([]);
 const measuredWidths = ref<number[]>([]);
 const hoveredTabId = ref<string | null>(null);
-const focusedTabId = ref<string | null>(null);
 let measureRafId = 0;
 
 function resolveElement(target: Element | ComponentPublicInstance | null) {
@@ -63,7 +62,7 @@ function updateMeasurements() {
 }
 
 function isEmphasized(tabId: string) {
-  return props.modelValue === tabId || hoveredTabId.value === tabId || focusedTabId.value === tabId;
+  return props.modelValue === tabId || hoveredTabId.value === tabId;
 }
 
 function getLabelClass(tabId: string) {
@@ -135,8 +134,6 @@ onBeforeUnmount(() => {
       @click="emit('update:modelValue', tab.id)"
       @mouseenter="hoveredTabId = tab.id"
       @mouseleave="hoveredTabId = null"
-      @focus="focusedTabId = tab.id"
-      @blur="focusedTabId = null"
     >
       <span
         class="top-tab-switch-bg absolute inset-0"

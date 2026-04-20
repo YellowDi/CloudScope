@@ -24,8 +24,8 @@
   --border: rgb(0 0 0 / 0.1);
   --input: rgb(0 0 0 / 0.12);
   --border-hover: rgb(0 0 0 / 0.16);
-  --ring: #097fe8;
-  --focus-ring: #097fe8;
+  --ring: transparent;
+  --focus-ring: transparent;
   --theme-primary: #0075de;
   --brand: #0075de;
   --brand-hover: #005bab;
@@ -108,8 +108,8 @@
   --border: rgb(255 255 255 / 0.1);
   --input: rgb(255 255 255 / 0.12);
   --border-hover: rgb(255 255 255 / 0.16);
-  --ring: #5aacf5;
-  --focus-ring: #5aacf5;
+  --ring: transparent;
+  --focus-ring: transparent;
   --theme-primary: #4da3f0;
   --brand: #4da3f0;
   --brand-hover: #62aef0;

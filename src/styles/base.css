@@ -61,7 +61,16 @@ img {
   isolation: isolate;
 }
 
-:focus-visible {
-  outline: none;
-  box-shadow: var(--ds-shadow-focus);
+:focus,
+:focus-visible,
+:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+:focus-visible,
+:focus-within {
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-shadow: none !important;
 }

@@ -11,7 +11,7 @@
   --ds-color-bg-overlay: hsla(0, 0%, 98%, 1);
   --ds-color-border-soft: #ebebeb;
   --ds-color-link: #0072f5;
-  --ds-color-focus: hsla(212, 100%, 48%, 1);
+  --ds-color-focus: transparent;
   --ds-color-accent-blue: #0a72ef;
   --ds-color-accent-pink: #de1d8d;
   --ds-color-accent-red: #ff5b4f;
@@ -50,7 +50,7 @@
   --ds-shadow-ring-light: rgb(235, 235, 235) 0 0 0 1px;
   --ds-shadow-card: rgba(0, 0, 0, 0.08) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 2px, rgb(250, 250, 250) 0 0 0 1px;
   --ds-shadow-card-hover: rgba(0, 0, 0, 0.08) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 2px, rgba(0, 0, 0, 0.04) 0 8px 8px -8px, rgb(250, 250, 250) 0 0 0 1px;
-  --ds-shadow-focus: 0 0 0 2px var(--ds-color-focus);
+  --ds-shadow-focus: none;
   --space-1: 0.0625rem;
   --space-2: 0.125rem;
   --space-3: 0.1875rem;

@@ -34,7 +34,7 @@
                 @click="handleSelectScope(tab.value)"
               >
                 <span class="relative isolate inline-block">
-                  <span class="pointer-events-none absolute -inset-x-2 -inset-y-1 rounded-md transition-colors group-hover:[background:var(--interactive-hover,rgba(0,0,0,0.045))] group-focus-visible:[background:var(--interactive-hover,rgba(0,0,0,0.045))]" />
+                  <span class="pointer-events-none absolute -inset-x-2 -inset-y-1 rounded-md transition-colors group-hover:[background:var(--interactive-hover,rgba(0,0,0,0.045))]" />
                   <span class="relative z-10">{{ tab.label }}</span>
                 </span>
               </button>

@@ -530,19 +530,26 @@ function syncEmbeddedViewportState() {
   const headerContent = detailLayout?.querySelector("[data-detail-layout-header-content]") as HTMLElement | null
   const mainElement = tableOuterRef.value.closest("main")
 
-  if (!headerContent || !(mainElement instanceof HTMLElement)) {
+  if (!(mainElement instanceof HTMLElement)) {
     resetEmbeddedViewportState()
     return
   }
 
-  const headerRect = headerContent.getBoundingClientRect()
   const mainRect = mainElement.getBoundingClientRect()
+  embeddedViewportExpandLeft.value = Math.max(0, Math.round(outerRect.left - mainRect.left))
+  embeddedViewportExpandRight.value = Math.max(0, Math.round(mainRect.right - outerRect.right))
+
+  if (!headerContent) {
+    embeddedLeadingInset.value = embeddedViewportExpandLeft.value
+    embeddedTrailingInset.value = embeddedViewportExpandRight.value
+    return
+  }
+
+  const headerRect = headerContent.getBoundingClientRect()
   const headerStyles = window.getComputedStyle(headerContent)
   const headerContentLeft = headerRect.left + Number.parseFloat(headerStyles.paddingLeft || "0")
   const headerContentRight = headerRect.right - Number.parseFloat(headerStyles.paddingRight || "0")
 
-  embeddedViewportExpandLeft.value = Math.max(0, Math.round(outerRect.left - mainRect.left))
-  embeddedViewportExpandRight.value = Math.max(0, Math.round(mainRect.right - outerRect.right))
   embeddedLeadingInset.value = Math.max(0, Math.round(headerContentLeft - mainRect.left))
   embeddedTrailingInset.value = Math.max(0, Math.round(mainRect.right - headerContentRight))
 }
@@ -1966,31 +1973,39 @@ onBeforeUnmount(() => {
 
 <style>
 [data-table-scroll-viewport] {
-  scrollbar-width: auto;
-  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
 }
 
 [data-table-scroll-viewport]::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 0 !important;
+  height: 0 !important;
+  display: none;
+  -webkit-appearance: none;
 }
 
 [data-table-scroll-viewport]::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  background: color-mix(in srgb, var(--foreground) 18%, transparent);
+  background: transparent;
+  border-radius: 0;
 }
 
 [data-table-scroll-viewport]::-webkit-scrollbar-track {
   background: transparent;
 }
 
+[data-table-scroll-viewport]::-webkit-scrollbar:vertical,
 [data-table-scroll-viewport]::-webkit-scrollbar:horizontal {
   height: 0 !important;
+  width: 0 !important;
   max-height: 0 !important;
+  max-width: 0 !important;
   display: none;
   -webkit-appearance: none;
 }
 
+[data-table-scroll-viewport]::-webkit-scrollbar-track:vertical,
+[data-table-scroll-viewport]::-webkit-scrollbar-thumb:vertical,
 [data-table-scroll-viewport]::-webkit-scrollbar-track:horizontal,
 [data-table-scroll-viewport]::-webkit-scrollbar-thumb:horizontal,
 [data-table-scroll-viewport]::-webkit-scrollbar-corner {

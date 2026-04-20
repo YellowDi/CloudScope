@@ -42,7 +42,7 @@
       </div>
     </header>
 
-    <main class="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col px-4 py-8">
+    <main class="flex min-h-[calc(100vh-4rem)] w-full flex-col px-4 py-8">
       <RouterView />
     </main>
   </div>

@@ -1,5 +1,5 @@
 <template>
-  <section class="flex flex-1 flex-col gap-6">
+  <section class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
     <header class="flex flex-col">
       <div class="flex min-w-0 flex-col border-b border-border">
         <div class="flex min-w-0 items-center justify-between gap-x-4 gap-y-3 pb-2 flex-nowrap sm:items-end">

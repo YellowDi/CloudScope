@@ -1,5 +1,5 @@
 <template>
-  <section class="flex flex-1 flex-col gap-6">
+  <section class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
     <header class="flex flex-col gap-4">
       <div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-2">
         <h1 class="leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
@@ -186,7 +186,17 @@
 
           <TabsContent value="cvm" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <TablePageTable :columns="visibleCvmColumns" :rows="filteredCvmRows" row-key="rowId" :loading="loading" :show-index="true" :sticky-header="true" :edge-gutter="false">
+              <TablePageTable
+                :columns="visibleCvmColumns"
+                :rows="paginatedCvmRows"
+                row-key="rowId"
+                :loading="loading"
+                :show-index="true"
+                :sticky-header="true"
+                :edge-gutter="true"
+                :list-level-table="false"
+                :summary="cvmTableSummary"
+              >
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -200,12 +210,52 @@
                   />
                 </template>
               </TablePageTable>
+
+              <div v-if="cvmPageCount > 1" class="min-w-0 shrink-0 pt-3">
+                <Pagination
+                  v-model:page="cvmPage"
+                  :items-per-page="DASHBOARD_PAGE_SIZE"
+                  :total="filteredCvmRows.length"
+                  :sibling-count="1"
+                  class="w-full justify-end"
+                >
+                  <PaginationContent v-slot="{ items }" class="justify-end">
+                    <PaginationFirst />
+                    <PaginationPrevious />
+                    <template
+                      v-for="(item, index) in items"
+                      :key="`${item.type}-${item.type === 'page' ? item.value : index}`"
+                    >
+                      <PaginationItem
+                        v-if="item.type === 'page'"
+                        :value="item.value"
+                        :is-active="item.value === cvmPage"
+                      >
+                        {{ item.value }}
+                      </PaginationItem>
+                      <PaginationEllipsis v-else />
+                    </template>
+                    <PaginationNext />
+                    <PaginationLast />
+                  </PaginationContent>
+                </Pagination>
+              </div>
             </div>
           </TabsContent>
 
           <TabsContent value="database" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <TablePageTable :columns="visibleDatabaseColumns" :rows="filteredDatabaseRows" row-key="rowId" :loading="loading" :show-index="true" :sticky-header="true" :edge-gutter="false">
+              <TablePageTable
+                :columns="visibleDatabaseColumns"
+                :rows="paginatedDatabaseRows"
+                row-key="rowId"
+                :loading="loading"
+                :show-index="true"
+                :sticky-header="true"
+                :edge-gutter="true"
+                :list-level-table="false"
+                :summary="databaseTableSummary"
+              >
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -219,6 +269,36 @@
                   />
                 </template>
               </TablePageTable>
+
+              <div v-if="databasePageCount > 1" class="min-w-0 shrink-0 pt-3">
+                <Pagination
+                  v-model:page="databasePage"
+                  :items-per-page="DASHBOARD_PAGE_SIZE"
+                  :total="filteredDatabaseRows.length"
+                  :sibling-count="1"
+                  class="w-full justify-end"
+                >
+                  <PaginationContent v-slot="{ items }" class="justify-end">
+                    <PaginationFirst />
+                    <PaginationPrevious />
+                    <template
+                      v-for="(item, index) in items"
+                      :key="`${item.type}-${item.type === 'page' ? item.value : index}`"
+                    >
+                      <PaginationItem
+                        v-if="item.type === 'page'"
+                        :value="item.value"
+                        :is-active="item.value === databasePage"
+                      >
+                        {{ item.value }}
+                      </PaginationItem>
+                      <PaginationEllipsis v-else />
+                    </template>
+                    <PaginationNext />
+                    <PaginationLast />
+                  </PaginationContent>
+                </Pagination>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
@@ -241,6 +321,16 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationFirst,
+  PaginationItem,
+  PaginationLast,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { getAccountBalanceResponse } from '@/services/billing';
 import { getCloudDashboardList } from '@/services/cloud-dashboard';
@@ -264,6 +354,7 @@ type DashboardAccountData = {
 };
 
 const ALL_ACCOUNTS_SCOPE = 'all';
+const DASHBOARD_PAGE_SIZE = 10;
 const accountsStore = useAccountsStore();
 const stats = ref<DashboardStats | null>(null);
 const balanceSummary = ref<AccountBalanceSummary | null>(null);
@@ -282,6 +373,8 @@ const cvmStatusFilter = ref('all');
 const databaseSearchKeyword = ref('');
 const databaseStatusFilter = ref('all');
 const databaseTypeFilter = ref('all');
+const cvmPage = ref(1);
+const databasePage = ref(1);
 
 const cvmColumns: TableColumn[] = [
   { key: 'account', label: '云账号', filterType: 'text', tone: 'muted' },
@@ -400,6 +493,19 @@ const filteredDatabaseRows = computed(() => {
   });
 });
 
+const cvmPageCount = computed(() => Math.max(1, Math.ceil(filteredCvmRows.value.length / DASHBOARD_PAGE_SIZE)));
+const databasePageCount = computed(() => Math.max(1, Math.ceil(filteredDatabaseRows.value.length / DASHBOARD_PAGE_SIZE)));
+
+const paginatedCvmRows = computed(() => {
+  const start = (cvmPage.value - 1) * DASHBOARD_PAGE_SIZE;
+  return filteredCvmRows.value.slice(start, start + DASHBOARD_PAGE_SIZE);
+});
+
+const paginatedDatabaseRows = computed(() => {
+  const start = (databasePage.value - 1) * DASHBOARD_PAGE_SIZE;
+  return filteredDatabaseRows.value.slice(start, start + DASHBOARD_PAGE_SIZE);
+});
+
 const hasCvmFilters = computed(
   () => cvmSearchKeyword.value.trim().length > 0 || cvmStatusFilter.value !== 'all',
 );
@@ -422,6 +528,9 @@ const databaseEmptyDescription = computed(() =>
     ? '全部账号下还没有可展示的数据库数据。'
     : '当前账号下还没有可展示的数据库数据。',
 );
+
+const cvmTableSummary = computed(() => buildPageSummary(cvmPage.value, filteredCvmRows.value.length));
+const databaseTableSummary = computed(() => buildPageSummary(databasePage.value, filteredDatabaseRows.value.length));
 
 const balanceAvailableMeta = computed(() => {
   if (!balanceSummary.value) {
@@ -494,6 +603,16 @@ function getTargetAccounts() {
   }
 
   return accountsStore.accountList.filter((account) => account.id === activeScope.value);
+}
+
+function buildPageSummary(page: number, total: number) {
+  if (total <= 0) {
+    return '';
+  }
+
+  const start = (page - 1) * DASHBOARD_PAGE_SIZE + 1;
+  const end = Math.min(total, page * DASHBOARD_PAGE_SIZE);
+  return `显示第 ${formatCount(start)} - ${formatCount(end)} 条，共 ${formatCount(total)} 条`;
 }
 
 async function loadCloudDashboardRows(): Promise<CloudDashboardInstanceItem[]> {
@@ -713,6 +832,26 @@ watch(
   },
   { immediate: true },
 );
+
+watch([activeScope, cvmSearchKeyword, cvmStatusFilter], () => {
+  cvmPage.value = 1;
+});
+
+watch([activeScope, databaseSearchKeyword, databaseStatusFilter, databaseTypeFilter], () => {
+  databasePage.value = 1;
+});
+
+watch(cvmPageCount, (pageCount) => {
+  if (cvmPage.value > pageCount) {
+    cvmPage.value = pageCount;
+  }
+});
+
+watch(databasePageCount, (pageCount) => {
+  if (databasePage.value > pageCount) {
+    databasePage.value = pageCount;
+  }
+});
 
 watch(activeScope, (value) => {
   if (value !== ALL_ACCOUNTS_SCOPE && value !== accountsStore.currentAccountId) {

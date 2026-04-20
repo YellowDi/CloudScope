@@ -48,106 +48,150 @@
         description="后端当前没有返回已添加的腾讯云账号。"
       />
 
-      <div v-else class="grid gap-4 xl:grid-cols-2">
+      <div v-else class="columns-1 [column-gap:1rem] md:columns-2 lg:columns-3">
         <Card
           v-for="account in rows"
           :key="account.id"
-          class="border-border shadow-sm transition-colors hover:border-primary/30"
+          class="mb-4 block break-inside-avoid overflow-hidden rounded-[20px] border border-black/5 bg-[#faf9f7] shadow-none transition-none"
         >
-          <CardHeader class="gap-2 p-4 pb-0">
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <CardTitle class="truncate text-lg">{{ account.name }}</CardTitle>
-                <CardDescription class="mt-1">{{ account.uuid || account.id }}</CardDescription>
+          <div class="rounded-[16px] bg-background px-4 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_5px_10px_rgba(17,24,39,0.05)]">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <CardTitle class="truncate text-[18px] tracking-tight">{{ account.name }}</CardTitle>
               </div>
-              <div class="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+              <div class="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                 {{ formatStatus(account.statusCode, account.status) }}
               </div>
             </div>
-          </CardHeader>
 
-          <CardContent class="grid gap-3 p-4">
-            <div class="grid grid-cols-2 gap-2 text-muted-foreground">
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">地域</p>
-                <p class="truncate text-sm font-medium text-foreground">{{ account.region }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">UIN</p>
-                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ account.uin ?? '--' }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">创建时间</p>
-                <p class="truncate text-sm font-medium text-foreground">{{ formatOptionalDateTime(account.createdAt) }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">更新时间</p>
-                <p class="truncate text-sm font-medium text-foreground">{{ formatOptionalDateTime(account.updatedAt || account.lastSyncedAt) }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2 sm:col-span-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">账号编号</p>
-                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ account.recordId ?? '--' }}</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 text-muted-foreground">
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">可用</p>
-                <p
-                  class="truncate text-sm font-medium tabular-nums"
-                  :class="isLowAvailableBalance(account.balance) ? 'text-destructive' : 'text-foreground'"
+            <div class="mt-4 rounded-[16px] bg-muted/65 px-4 py-3.5">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-xs text-muted-foreground">可用余额</p>
+                  <p
+                    class="mt-1 truncate text-[28px] font-semibold tracking-[-0.03em] tabular-nums"
+                    :class="isLowAvailableBalance(account.balance) ? 'text-destructive' : 'text-foreground'"
+                  >
+                    {{ formatCurrency(account.balance) }}
+                  </p>
+                </div>
+                <div
+                  v-if="isLowAvailableBalance(account.balance)"
+                  class="shrink-0 rounded-full bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive"
                 >
-                  {{ formatCurrency(account.balance) }}
-                </p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">现金</p>
-                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.cashAccountBalance) }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">赠送金</p>
-                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.presentAccountBalance) }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">冻结</p>
-                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.freezeAmount) }}</p>
-              </div>
-              <div class="rounded-lg bg-muted/35 px-3 py-2">
-                <p class="text-[11px] uppercase tracking-[0.08em]">欠费</p>
-                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.oweAmount) }}</p>
+                  低余额
+                </div>
               </div>
             </div>
 
-            <div class="grid grid-cols-3 gap-2 border-t border-border pt-3">
-              <Button
-                type="button"
-                variant="outline"
-                class="h-8 w-full px-3 text-[13px]"
-                :disabled="accountsStore.loading"
-                @click="reloadAccounts"
+            <Transition
+              @before-enter="handleExpandBeforeEnter"
+              @enter="handleExpandEnter"
+              @after-enter="handleExpandAfterEnter"
+              @before-leave="handleExpandBeforeLeave"
+              @leave="handleExpandLeave"
+              @after-leave="handleExpandAfterLeave"
+            >
+              <div
+                v-if="isAccountExpanded(account.id)"
+                :id="`account-details-${account.id}`"
+                class="mt-4 border-t border-border/60 pt-4"
               >
-                <LoaderCircle v-if="accountsStore.loading" class="h-4 w-4 animate-spin" />
-                刷新
-              </Button>
+                <div class="space-y-4">
+                  <section class="space-y-2">
+                    <p class="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">账号信息</p>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div
+                        v-for="field in getAccountMetaFields(account)"
+                        :key="field.label"
+                        class="rounded-xl bg-muted/55 px-3 py-2.5"
+                      >
+                        <p class="text-[11px] text-muted-foreground">{{ field.label }}</p>
+                        <p class="mt-1 truncate text-sm font-medium text-foreground" :class="field.numeric ? 'tabular-nums' : undefined">
+                          {{ field.value }}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="space-y-2">
+                    <p class="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">余额明细</p>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div
+                        v-for="field in getAccountBalanceFields(account)"
+                        :key="field.label"
+                        class="rounded-xl bg-muted/55 px-3 py-2.5"
+                      >
+                        <p class="text-[11px] text-muted-foreground">{{ field.label }}</p>
+                        <p
+                          class="mt-1 truncate text-sm font-medium tabular-nums"
+                          :class="field.danger ? 'text-destructive' : 'text-foreground'"
+                        >
+                          {{ field.value }}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 px-4 py-2.5">
+            <button
+              type="button"
+              class="inline-flex min-h-10 items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors duration-180 hover:text-foreground"
+              :aria-expanded="isAccountExpanded(account.id)"
+              :aria-controls="`account-details-${account.id}`"
+              @click="toggleAccountDetails(account.id)"
+            >
+              {{ isAccountExpanded(account.id) ? '收起详情' : '展开详情' }}
+              <ChevronDown
+                class="h-4 w-4 transition-transform duration-180"
+                :class="isAccountExpanded(account.id) ? 'rotate-180' : undefined"
+              />
+            </button>
+
+            <div class="flex shrink-0 items-center gap-2">
+              <TooltipWrap content="刷新账号列表">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  class="rounded-lg"
+                  :disabled="accountsStore.loading"
+                  aria-label="刷新账号列表"
+                  @click="handleRefreshAccount"
+                >
+                  <LoaderCircle v-if="accountsStore.loading" class="h-4 w-4 animate-spin" />
+                  <RefreshCw v-else class="h-4 w-4" />
+                </Button>
+              </TooltipWrap>
+
+              <TooltipWrap content="编辑账号">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  class="rounded-lg"
+                  aria-label="编辑账号"
+                  @click="openEditDialog(account)"
+                >
+                  <PencilLine class="h-4 w-4" />
+                </Button>
+              </TooltipWrap>
+
               <Button
                 type="button"
                 variant="outline"
-                class="h-8 w-full px-3 text-[13px]"
-                @click="openEditDialog(account)"
-              >
-                编辑
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                class="h-8 w-full px-3 text-[13px]"
+                class="h-8 rounded-lg px-2.5 text-xs"
                 @click="handleQuickLogin(account)"
               >
                 <LogIn class="h-4 w-4" />
                 快捷登录
               </Button>
             </div>
-          </CardContent>
+          </div>
         </Card>
       </div>
     </div>
@@ -247,15 +291,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
-import { LoaderCircle, LogIn } from 'lucide-vue-next';
+import { computed, reactive, ref, watch } from 'vue';
+import { ChevronDown, LoaderCircle, LogIn, PencilLine, RefreshCw } from 'lucide-vue-next';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseInput from '@/components/BaseInput.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonLoader from '@/components/SkeletonLoader.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -264,12 +308,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TooltipWrap } from '@/components/ui/tooltip';
 import type { CloudAccount } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { useAppStore } from '@/store/app';
 import { formatDateTimeWithMinutes } from '@/utils/time';
 
 type DialogMode = 'create' | 'edit';
+type AccountDetailField = {
+  label: string;
+  value: string;
+  numeric?: boolean;
+  danger?: boolean;
+};
 
 const accountsStore = useAccountsStore();
 const appStore = useAppStore();
@@ -281,6 +332,7 @@ const dialogOpen = ref(false);
 const dialogMode = ref<DialogMode>('create');
 const selectedAccount = ref<CloudAccount | null>(null);
 const deleteConfirming = ref(false);
+const expandedAccountIds = ref<string[]>([]);
 const form = reactive({
   name: '',
   region: 'ap-guangzhou',
@@ -290,6 +342,11 @@ const form = reactive({
 });
 const rows = computed(() => accountsStore.accountList);
 const isEditMode = computed(() => dialogMode.value === 'edit');
+
+watch(rows, (accounts) => {
+  const validIds = new Set(accounts.map((account) => account.id));
+  expandedAccountIds.value = expandedAccountIds.value.filter((id) => validIds.has(id));
+}, { immediate: true });
 
 async function reloadAccounts() {
   tableError.value = '';
@@ -318,6 +375,20 @@ function openEditDialog(account: CloudAccount) {
   form.secretId = '';
   form.secretKey = '';
   form.status = typeof account.statusCode === 'number' ? String(account.statusCode) : '0';
+}
+
+function isAccountExpanded(accountId: string) {
+  return expandedAccountIds.value.includes(accountId);
+}
+
+function toggleAccountDetails(accountId: string) {
+  expandedAccountIds.value = isAccountExpanded(accountId)
+    ? expandedAccountIds.value.filter((id) => id !== accountId)
+    : [...expandedAccountIds.value, accountId];
+}
+
+function handleRefreshAccount() {
+  void reloadAccounts();
 }
 
 function handleQuickLogin(account: CloudAccount) {
@@ -479,5 +550,70 @@ function formatStatus(statusCode?: number, fallback?: string) {
   }
 
   return fallback || '--';
+}
+
+function getAccountMetaFields(account: CloudAccount): AccountDetailField[] {
+  return [
+    { label: '地域', value: account.region || '--' },
+    { label: '账户 UIN', value: account.uin ?? '--', numeric: true },
+    { label: '账号编号', value: account.recordId === undefined ? '--' : String(account.recordId), numeric: true },
+    { label: '创建时间', value: formatOptionalDateTime(account.createdAt) },
+    { label: '更新时间', value: formatOptionalDateTime(account.updatedAt || account.lastSyncedAt) },
+    { label: '凭据状态', value: account.credentialConfigured === false ? '未配置' : '已配置' },
+  ];
+}
+
+function getAccountBalanceFields(account: CloudAccount): AccountDetailField[] {
+  return [
+    { label: '现金余额', value: formatCurrency(account.cashAccountBalance) },
+    { label: '赠送金余额', value: formatCurrency(account.presentAccountBalance) },
+    { label: '冻结余额', value: formatCurrency(account.freezeAmount) },
+    { label: '欠费余额', value: formatCurrency(account.oweAmount), danger: typeof account.oweAmount === 'number' && account.oweAmount > 0 },
+  ];
+}
+
+function handleExpandBeforeEnter(element: Element) {
+  const target = element as HTMLElement;
+  target.style.height = '0';
+  target.style.opacity = '0';
+  target.style.overflow = 'hidden';
+}
+
+function handleExpandEnter(element: Element) {
+  const target = element as HTMLElement;
+  target.style.transition = 'height 220ms cubic-bezier(0.2, 0, 0, 1), opacity 180ms ease-out';
+  target.style.height = `${target.scrollHeight}px`;
+  target.style.opacity = '1';
+}
+
+function handleExpandAfterEnter(element: Element) {
+  const target = element as HTMLElement;
+  target.style.height = 'auto';
+  target.style.opacity = '1';
+  target.style.overflow = '';
+  target.style.transition = '';
+}
+
+function handleExpandBeforeLeave(element: Element) {
+  const target = element as HTMLElement;
+  target.style.height = `${target.scrollHeight}px`;
+  target.style.opacity = '1';
+  target.style.overflow = 'hidden';
+}
+
+function handleExpandLeave(element: Element) {
+  const target = element as HTMLElement;
+  target.style.transition = 'height 180ms cubic-bezier(0.4, 0, 1, 1), opacity 140ms ease-in';
+  void target.offsetHeight;
+  target.style.height = '0';
+  target.style.opacity = '0';
+}
+
+function handleExpandAfterLeave(element: Element) {
+  const target = element as HTMLElement;
+  target.style.height = '';
+  target.style.opacity = '';
+  target.style.overflow = '';
+  target.style.transition = '';
 }
 </script>

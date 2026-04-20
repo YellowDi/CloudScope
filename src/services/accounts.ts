@@ -2,41 +2,124 @@ import { request } from './http';
 import type {
   CloudAccount,
   CreateAccountPayload,
-  TencentAccountListItem,
   TencentAccountListRequest,
-  TencentAccountListResponse,
   UpdateAccountPayload,
 } from './types';
 
-function normalizeAccount(item: TencentAccountListItem): CloudAccount {
-  const recordId = item.Id;
-  const uuid = item.Uuid?.trim();
-  const createdAt = item.CreatedAt?.trim() ?? '';
-  const updatedAt = item.UpdatedAt?.trim() ?? '';
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function getField<T = unknown>(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null) {
+      return value as T;
+    }
+  }
+
+  return undefined;
+}
+
+function readString(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function readNumber(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function readBoolean(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+  }
+
+  return undefined;
+}
+
+function extractAccountItems(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  const record = asRecord(payload);
+  if (!record) {
+    return [];
+  }
+
+  const directList = getField<unknown>(record, ['List', 'list']);
+  if (Array.isArray(directList)) {
+    return directList;
+  }
+
+  const nestedData = getField<unknown>(record, ['Data', 'data']);
+  if (nestedData) {
+    return extractAccountItems(nestedData);
+  }
+
+  return [];
+}
+
+function normalizeAccount(item: unknown, index: number): CloudAccount {
+  const record = asRecord(item) ?? {};
+  const recordId = readNumber(record, ['Id', 'id']);
+  const uuid = readString(record, ['Uuid', 'uuid']);
+  const createdAt = readString(record, ['CreatedAt', 'createdAt']);
+  const updatedAt = readString(record, ['UpdatedAt', 'updatedAt']);
+  const uin = readNumber(record, ['Uin', 'uin']);
+  const name = readString(record, ['Name', 'name']);
+  const statusCode = readNumber(record, ['Status', 'status']);
+  const region = readString(record, ['Region', 'region']);
+  const fallbackId =
+    uuid ||
+    (recordId !== undefined ? String(recordId) : '') ||
+    (uin !== undefined ? String(uin) : '') ||
+    (name ? `${name}-${index}` : `account-${index}`);
 
   return {
-    id: uuid || (recordId !== undefined ? String(recordId) : ''),
-    name: item.Name?.trim() || '未命名账号',
-    region: item.Region?.trim() || '--',
-    status: item.Status === undefined ? '未知' : `状态码 ${item.Status}`,
-    statusCode: item.Status,
+    id: fallbackId,
+    name: name || '未命名账号',
+    region: region || '--',
+    status: statusCode === undefined ? '未知' : `状态码 ${statusCode}`,
+    statusCode,
     lastSyncedAt: updatedAt || createdAt,
     createdAt,
     updatedAt,
-    uuid,
+    uuid: uuid || undefined,
     recordId,
-    uin: item.Uin === undefined ? undefined : String(item.Uin),
-    balance: item.Balance,
-    cashAccountBalance: item.CashAccountBalance,
-    freezeAmount: item.FreezeAmount,
-    oweAmount: item.OweAmount,
-    presentAccountBalance: item.PresentAccountBalance,
-    credentialConfigured: true,
+    uin: uin === undefined ? undefined : String(uin),
+    balance: readNumber(record, ['Balance', 'balance']),
+    cashAccountBalance: readNumber(record, ['CashAccountBalance', 'cashAccountBalance']),
+    freezeAmount: readNumber(record, ['FreezeAmount', 'freezeAmount']),
+    oweAmount: readNumber(record, ['OweAmount', 'oweAmount']),
+    presentAccountBalance: readNumber(record, ['PresentAccountBalance', 'presentAccountBalance']),
+    credentialConfigured: readBoolean(record, ['CredentialConfigured', 'credentialConfigured']) ?? true,
   };
 }
 
 export async function getAccounts() {
-  const response = await request<TencentAccountListResponse, TencentAccountListRequest>({
+  const response = await request<unknown, TencentAccountListRequest>({
     path: '/api/tencentaccount/list',
     method: 'POST',
     body: {
@@ -46,7 +129,7 @@ export async function getAccounts() {
     },
   });
 
-  return (response.List ?? []).map(normalizeAccount).filter((account) => account.id);
+  return extractAccountItems(response).map(normalizeAccount);
 }
 
 export async function createAccount(payload: CreateAccountPayload) {

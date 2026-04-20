@@ -3,7 +3,6 @@ import { translateCloudDashboardList } from './translators';
 import type {
   CloudDashboardListResult,
   CloudInstanceListReq,
-  CloudInstanceListResponse,
 } from './types';
 
 const DEFAULT_CLOUD_DASHBOARD_REQ: Required<Pick<CloudInstanceListReq, 'Full' | 'PageNum' | 'PageSize'>> = {
@@ -26,7 +25,7 @@ export async function getCloudDashboardList(
         Full: true,
       };
 
-  const response = await request<CloudInstanceListResponse, CloudInstanceListReq>({
+  const response = await request<unknown, CloudInstanceListReq>({
     path: '/api/dashboard/clouddashboard/list',
     method: 'POST',
     body,

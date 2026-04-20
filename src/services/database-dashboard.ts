@@ -2,7 +2,6 @@ import { request } from './http';
 import { translateDatabaseDashboardList } from './translators';
 import type {
   DashboardListReq,
-  DatabaseDashboardListResponse,
   DatabaseDashboardListResult,
 } from './types';
 
@@ -26,7 +25,7 @@ export async function getDatabaseDashboardList(
         Full: true,
       };
 
-  const response = await request<DatabaseDashboardListResponse, DashboardListReq>({
+  const response = await request<unknown, DashboardListReq>({
     path: '/api/dashboard/databasedashboard/list',
     method: 'POST',
     body,

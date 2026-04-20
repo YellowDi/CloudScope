@@ -3,13 +3,9 @@ import type {
   AccountBalanceSummary,
   CloudDashboardListResult,
   CloudDashboardInstanceItem,
-  CloudInstanceListResponse,
-  CloudInstanceRow,
   CvmListItem,
   DashboardStats,
   DatabaseDashboardInstanceItem,
-  DatabaseDashboardInstanceRow,
-  DatabaseDashboardListResponse,
   DatabaseDashboardListResult,
   DatabaseListItem,
   TencentAccountBalanceResponse,
@@ -29,6 +25,95 @@ const DB_STATUS_MAP: Record<string, string> = {
   ISOLATED: '隔离中',
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function getField<T = unknown>(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null) {
+      return value as T;
+    }
+  }
+
+  return undefined;
+}
+
+function readString(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function readNumber(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function readStringArray(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function extractNestedPayload(payload: unknown): unknown {
+  const record = asRecord(payload);
+  if (!record) {
+    return payload;
+  }
+
+  const nested = getField(record, ['Data', 'data', 'Response', 'response']);
+  if (nested === undefined || nested === payload) {
+    return payload;
+  }
+
+  return extractNestedPayload(nested);
+}
+
+function extractListPayload(payload: unknown): { list: unknown[]; total?: number } {
+  if (Array.isArray(payload)) {
+    return { list: payload, total: payload.length };
+  }
+
+  const record = asRecord(payload);
+  if (!record) {
+    return { list: [] };
+  }
+
+  const directList = getField<unknown>(record, ['List', 'list', 'Rows', 'rows', 'Items', 'items']);
+  if (Array.isArray(directList)) {
+    return {
+      list: directList,
+      total: readNumber(record, ['Total', 'total', 'Count', 'count']),
+    };
+  }
+
+  const nested = getField<unknown>(record, ['Data', 'data', 'Response', 'response']);
+  if (nested !== undefined) {
+    return extractListPayload(nested);
+  }
+
+  return { list: [] };
+}
+
 export function translateCvmList(response: TencentCvmResponse): CvmListItem[] {
   return response.Response.InstanceSet.map((instance) => ({
     id: instance.InstanceId,
@@ -42,21 +127,26 @@ export function translateCvmList(response: TencentCvmResponse): CvmListItem[] {
   }));
 }
 
-function formatCloudDashboardSpec(instance: CloudInstanceRow): string {
+function formatCloudDashboardSpec(instance: Record<string, unknown>): string {
   const segments: string[] = [];
+  const cpu = readNumber(instance, ['CPU', 'cpu']);
+  const memory = readNumber(instance, ['Memory', 'memory']);
+  const diskType = readString(instance, ['DiskType', 'diskType']);
+  const diskSize = readString(instance, ['DiskSize', 'diskSize']);
+  const bandwidth = readNumber(instance, ['InternetMaxBandwidthOut', 'internetMaxBandwidthOut']);
+  const cpuText = cpu === undefined ? '--' : String(cpu);
+  const memoryText = memory === undefined ? '--' : String(memory);
 
-  if (instance.CPU !== undefined || instance.Memory !== undefined) {
-    const cpu = instance.CPU ?? '--';
-    const memory = instance.Memory ?? '--';
-    segments.push(`${cpu} 核 / ${memory} GB`);
+  if (cpu !== undefined || memory !== undefined) {
+    segments.push(`${cpuText} 核 / ${memoryText} GB`);
   }
 
-  if (instance.DiskType || instance.DiskSize) {
-    segments.push([instance.DiskType, instance.DiskSize].filter(Boolean).join(' / '));
+  if (diskType || diskSize) {
+    segments.push([diskType, diskSize].filter(Boolean).join(' / '));
   }
 
-  if (instance.InternetMaxBandwidthOut !== undefined) {
-    segments.push(`${instance.InternetMaxBandwidthOut} Mbps`);
+  if (bandwidth !== undefined) {
+    segments.push(`${bandwidth} Mbps`);
   }
 
   return segments.join(' · ') || '--';
@@ -71,34 +161,51 @@ function normalizeCloudDashboardStatus(status?: string): CloudDashboardInstanceI
 }
 
 export function translateCloudDashboardList(
-  response: CloudInstanceListResponse,
+  response: unknown,
 ): CloudDashboardListResult {
-  const list = (response.List ?? []).map((instance) => {
-    const accountId = instance.AccountUuid?.trim() || String(instance.AccountId ?? '').trim();
-    const id = instance.InstanceID?.trim() || '--';
-    const accountName = instance.AccountName?.trim();
+  const { list: sourceList, total } = extractListPayload(response);
+
+  const list = sourceList.map((rawInstance, index) => {
+    const instance = asRecord(rawInstance) ?? {};
+    const numericAccountId = readNumber(instance, ['AccountId', 'accountId']);
+    const accountId =
+      readString(instance, ['AccountUuid', 'accountUuid', 'AccountUUID', 'accountUUID']) ||
+      (numericAccountId !== undefined
+        ? String(numericAccountId)
+        : '');
+    const id = readString(instance, ['InstanceID', 'instanceId', 'InstanceId', 'instanceID']) || '--';
+    const accountName = readString(instance, ['AccountName', 'accountName']);
+    const statusCode = readString(instance, ['InstanceState', 'instanceState']) || 'UNKNOWN';
+    const publicIp =
+      readString(instance, ['PublicIpAddresses', 'publicIpAddresses', 'PublicIpAddress', 'publicIpAddress']) ||
+      readStringArray(instance, ['PublicIpAddresses', 'publicIpAddresses'])[0] ||
+      '--';
+    const privateIp =
+      readString(instance, ['PrivateIpAddresses', 'privateIpAddresses', 'PrivateIpAddress', 'privateIpAddress']) ||
+      readStringArray(instance, ['PrivateIpAddresses', 'privateIpAddresses'])[0] ||
+      '--';
 
     return {
-      rowId: `${accountId || 'unknown'}:${id}`,
+      rowId: `${accountId || 'unknown'}:${id || index}`,
       accountId,
       account: accountName || accountId || '--',
       id,
-      name: instance.InstanceName?.trim() || '--',
-      status: normalizeCloudDashboardStatus(instance.InstanceState?.trim()),
-      statusCode: instance.InstanceState?.trim() || 'UNKNOWN',
-      publicIp: instance.PublicIpAddresses?.trim() || '--',
-      privateIp: instance.PrivateIpAddresses?.trim() || '--',
+      name: readString(instance, ['InstanceName', 'instanceName']) || '--',
+      status: normalizeCloudDashboardStatus(statusCode),
+      statusCode,
+      publicIp,
+      privateIp,
       spec: formatCloudDashboardSpec(instance),
-      zone: instance.Zone?.trim() || '--',
-      chargeType: instance.InstanceChargeType?.trim() || '--',
-      expiredTime: instance.ExpiredTime?.trim() || '',
-      remark: instance.Remark?.trim() || '--',
+      zone: readString(instance, ['Zone', 'zone']) || '--',
+      chargeType: readString(instance, ['InstanceChargeType', 'instanceChargeType']) || '--',
+      expiredTime: readString(instance, ['ExpiredTime', 'expiredTime']),
+      remark: readString(instance, ['Remark', 'remark']) || '--',
     };
   });
 
   return {
     list,
-    total: response.Total ?? list.length,
+    total: total ?? list.length,
   };
 }
 
@@ -123,39 +230,57 @@ function normalizeDatabaseDashboardStatus(status?: string): DatabaseDashboardIns
   return DB_STATUS_MAP[status] ?? status;
 }
 
-function normalizeDatabaseDashboardType(instance: DatabaseDashboardInstanceRow): string {
-  return instance.DataBaseType?.trim() || '--';
+function normalizeDatabaseDashboardType(instance: Record<string, unknown>): string {
+  return readString(instance, ['DataBaseType', 'databaseType', 'DBInstanceType', 'dbInstanceType']) || '--';
 }
 
 export function translateDatabaseDashboardList(
-  response: DatabaseDashboardListResponse,
+  response: unknown,
 ): DatabaseDashboardListResult {
-  const list = (response.List ?? []).map((instance) => {
-    const accountId = instance.AccountUuid?.trim() || String(instance.AccountId ?? '').trim();
-    const id = instance.InstanceID?.trim() || '--';
-    const accountName = instance.AccountName?.trim();
+  const { list: sourceList, total } = extractListPayload(response);
+
+  const list = sourceList.map((rawInstance, index) => {
+    const instance = asRecord(rawInstance) ?? {};
+    const numericAccountId = readNumber(instance, ['AccountId', 'accountId']);
+    const volume = readNumber(instance, ['Volume', 'volume']);
+    const accountId =
+      readString(instance, ['AccountUuid', 'accountUuid', 'AccountUUID', 'accountUUID']) ||
+      (numericAccountId !== undefined
+        ? String(numericAccountId)
+        : '');
+    const id = readString(instance, ['InstanceID', 'instanceId', 'InstanceId', 'instanceID']) || '--';
+    const accountName = readString(instance, ['AccountName', 'accountName']);
+    const statusCode = readString(instance, ['InstanceState', 'instanceState']) || 'UNKNOWN';
+    const publicIp =
+      readString(instance, ['PublicIpAddresses', 'publicIpAddresses', 'PublicIpAddress', 'publicIpAddress']) ||
+      readStringArray(instance, ['PublicIpAddresses', 'publicIpAddresses'])[0] ||
+      '--';
+    const privateIp =
+      readString(instance, ['PrivateIpAddresses', 'privateIpAddresses', 'PrivateIpAddress', 'privateIpAddress']) ||
+      readStringArray(instance, ['PrivateIpAddresses', 'privateIpAddresses'])[0] ||
+      '--';
 
     return {
-      rowId: `${accountId || 'unknown'}:${id}`,
+      rowId: `${accountId || 'unknown'}:${id || index}`,
       accountId,
       account: accountName || accountId || '--',
       id,
-      name: instance.InstanceName?.trim() || '--',
+      name: readString(instance, ['InstanceName', 'instanceName']) || '--',
       type: normalizeDatabaseDashboardType(instance),
-      status: normalizeDatabaseDashboardStatus(instance.InstanceState?.trim()),
-      statusCode: instance.InstanceState?.trim() || 'UNKNOWN',
-      publicIp: instance.PublicIpAddresses?.trim() || '--',
-      privateIp: instance.PrivateIpAddresses?.trim() || '--',
-      storage: instance.DiskSize?.trim() || '--',
-      zone: instance.Zone?.trim() || '--',
-      chargeType: instance.InstanceChargeType?.trim() || '--',
-      expiredTime: instance.ExpiredTime?.trim() || '',
+      status: normalizeDatabaseDashboardStatus(statusCode),
+      statusCode,
+      publicIp,
+      privateIp,
+      storage: readString(instance, ['DiskSize', 'diskSize']) || (volume !== undefined ? formatStorage(volume) : '--'),
+      zone: readString(instance, ['Zone', 'zone']) || '--',
+      chargeType: readString(instance, ['InstanceChargeType', 'instanceChargeType']) || '--',
+      expiredTime: readString(instance, ['ExpiredTime', 'expiredTime']),
     };
   });
 
   return {
     list,
-    total: response.Total ?? list.length,
+    total: total ?? list.length,
   };
 }
 
@@ -182,25 +307,69 @@ export function buildDashboardStats(
 export function translateAccountBalance(
   response: TencentAccountBalanceResponse,
 ): AccountBalanceSummary {
-  const { Response: payload } = response;
+  const payload = extractNestedPayload(response);
+  const record = asRecord(payload) ?? {};
+  const tempAmountInfoList = getField<unknown>(record, ['TempAmountInfoList', 'tempAmountInfoList']);
+  const tempItems = Array.isArray(tempAmountInfoList) ? tempAmountInfoList : [];
 
   return {
-    uin: String(payload.Uin),
-    availableBalance: formatCurrencyFromCent(payload.Balance),
-    cashBalance: formatCurrencyFromCent(payload.CashAccountBalance),
-    incomeBalance: formatCurrencyFromCent(payload.IncomeIntoAccountBalance),
-    presentBalance: formatCurrencyFromCent(payload.PresentAccountBalance),
-    freezeAmount: formatCurrencyFromCent(payload.FreezeAmount),
-    oweAmount: formatCurrencyFromCent(payload.OweAmount),
-    creditAmount: formatCurrencyFromCent(payload.CreditAmount),
-    creditBalance: formatCurrencyFromCent(payload.CreditBalance),
-    realCreditBalance: formatCurrencyFromCent(payload.RealCreditBalance),
-    tempCredit: formatCurrencyFromCent(payload.TempCredit),
-    tempAmountInfoList: payload.TempAmountInfoList.map((item) => ({
-      uin: item.Uin,
-      tempAmount: formatCurrencyFromCent(item.TempAmount),
-      startTime: item.StartTime,
-      endTime: item.EndTime,
-    })),
+    uin: String(readNumber(record, ['Uin', 'uin']) ?? '--'),
+    availableBalance: formatCurrencyFromCent(readNumber(record, ['Balance', 'balance']) ?? 0),
+    cashBalance: formatCurrencyFromCent(readNumber(record, ['CashAccountBalance', 'cashAccountBalance']) ?? 0),
+    incomeBalance: formatCurrencyFromCent(readNumber(record, ['IncomeIntoAccountBalance', 'incomeIntoAccountBalance']) ?? 0),
+    presentBalance: formatCurrencyFromCent(readNumber(record, ['PresentAccountBalance', 'presentAccountBalance']) ?? 0),
+    freezeAmount: formatCurrencyFromCent(readNumber(record, ['FreezeAmount', 'freezeAmount']) ?? 0),
+    oweAmount: formatCurrencyFromCent(readNumber(record, ['OweAmount', 'oweAmount']) ?? 0),
+    creditAmount: formatCurrencyFromCent(readNumber(record, ['CreditAmount', 'creditAmount']) ?? 0),
+    creditBalance: formatCurrencyFromCent(readNumber(record, ['CreditBalance', 'creditBalance']) ?? 0),
+    realCreditBalance: formatCurrencyFromCent(readNumber(record, ['RealCreditBalance', 'realCreditBalance']) ?? 0),
+    tempCredit: formatCurrencyFromCent(readNumber(record, ['TempCredit', 'tempCredit']) ?? 0),
+    tempAmountInfoList: tempItems.map((item) => {
+      const tempRecord = asRecord(item) ?? {};
+
+      return {
+        uin: readString(tempRecord, ['Uin', 'uin']) || '--',
+        tempAmount: formatCurrencyFromCent(readNumber(tempRecord, ['TempAmount', 'tempAmount']) ?? 0),
+        startTime: readString(tempRecord, ['StartTime', 'startTime']),
+        endTime: readString(tempRecord, ['EndTime', 'endTime']),
+      };
+    }),
+  };
+}
+
+export function normalizeAccountBalanceResponse(response: unknown): TencentAccountBalanceResponse {
+  const payload = extractNestedPayload(response);
+  const record = asRecord(payload) ?? {};
+  const tempAmountInfoList = getField<unknown>(record, ['TempAmountInfoList', 'tempAmountInfoList']);
+  const tempItems = Array.isArray(tempAmountInfoList) ? tempAmountInfoList : [];
+
+  return {
+    Response: {
+      Balance: readNumber(record, ['Balance', 'balance']) ?? 0,
+      Uin: readNumber(record, ['Uin', 'uin']) ?? 0,
+      RealBalance: readNumber(record, ['RealBalance', 'realBalance']) ?? 0,
+      CashAccountBalance: readNumber(record, ['CashAccountBalance', 'cashAccountBalance']) ?? 0,
+      IncomeIntoAccountBalance: readNumber(record, ['IncomeIntoAccountBalance', 'incomeIntoAccountBalance']) ?? 0,
+      PresentAccountBalance: readNumber(record, ['PresentAccountBalance', 'presentAccountBalance']) ?? 0,
+      FreezeAmount: readNumber(record, ['FreezeAmount', 'freezeAmount']) ?? 0,
+      OweAmount: readNumber(record, ['OweAmount', 'oweAmount']) ?? 0,
+      CreditAmount: readNumber(record, ['CreditAmount', 'creditAmount']) ?? 0,
+      CreditBalance: readNumber(record, ['CreditBalance', 'creditBalance']) ?? 0,
+      RealCreditBalance: readNumber(record, ['RealCreditBalance', 'realCreditBalance']) ?? 0,
+      TempCredit: readNumber(record, ['TempCredit', 'tempCredit']) ?? 0,
+      RequestId: readString(record, ['RequestId', 'requestId']),
+      IsAllowArrears: getField<boolean>(record, ['IsAllowArrears', 'isAllowArrears']),
+      IsCreditLimited: getField<boolean>(record, ['IsCreditLimited', 'isCreditLimited']),
+      TempAmountInfoList: tempItems.map((item) => {
+        const tempRecord = asRecord(item) ?? {};
+
+        return {
+          Uin: readString(tempRecord, ['Uin', 'uin']),
+          TempAmount: readNumber(tempRecord, ['TempAmount', 'tempAmount']) ?? 0,
+          StartTime: readString(tempRecord, ['StartTime', 'startTime']),
+          EndTime: readString(tempRecord, ['EndTime', 'endTime']),
+        };
+      }),
+    },
   };
 }

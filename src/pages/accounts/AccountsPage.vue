@@ -2,7 +2,7 @@
   <section class="flex flex-1 flex-col gap-6">
     <header class="flex flex-col">
       <div class="flex min-w-0 flex-col border-b border-border">
-        <div class="flex min-w-0 items-center justify-between gap-x-4 gap-y-3 pb-2 [flex-wrap:nowrap] sm:items-end">
+        <div class="flex min-w-0 items-center justify-between gap-x-4 gap-y-3 pb-2 flex-nowrap sm:items-end">
           <div class="min-w-0 flex flex-1 items-baseline gap-x-2 overflow-hidden">
             <h1 class="shrink-0 whitespace-nowrap text-[24px] leading-none font-semibold tracking-tight text-foreground sm:text-[28px] xl:text-[32px]">
               云账号管理

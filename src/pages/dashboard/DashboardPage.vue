@@ -186,7 +186,7 @@
 
           <TabsContent value="cvm" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <TablePageTable :columns="cvmColumns" :rows="filteredCvmRows" row-key="rowId" :loading="loading">
+              <TablePageTable :columns="visibleCvmColumns" :rows="filteredCvmRows" row-key="rowId" :loading="loading" :show-index="true" :sticky-header="true" :edge-gutter="false">
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -205,7 +205,7 @@
 
           <TabsContent value="database" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <TablePageTable :columns="databaseColumns" :rows="filteredDatabaseRows" row-key="rowId" :loading="loading">
+              <TablePageTable :columns="visibleDatabaseColumns" :rows="filteredDatabaseRows" row-key="rowId" :loading="loading" :show-index="true" :sticky-header="true" :edge-gutter="false">
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -246,13 +246,13 @@ import { getAccountBalanceResponse } from '@/services/billing';
 import { getCvmList } from '@/services/cvm';
 import { getDatabaseList } from '@/services/database';
 import { buildDashboardStats, translateAccountBalance } from '@/services/translators';
+import type { TableColumn } from '@/components/table-page/types';
 import type {
   AccountBalanceSummary,
   CloudAccount,
   CvmListItem,
   DashboardStats,
   DatabaseListItem,
-  TableColumn,
   TencentAccountBalanceResponse,
 } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
@@ -297,24 +297,26 @@ const databaseSearchKeyword = ref('');
 const databaseStatusFilter = ref('all');
 const databaseTypeFilter = ref('all');
 
-const baseCvmColumns: TableColumn[] = [
-  { key: 'id', title: '实例 ID', width: '14rem' },
-  { key: 'name', title: '名称', width: '12rem' },
-  { key: 'status', title: '状态', width: '8rem' },
-  { key: 'publicIp', title: '公网 IP', width: '10rem' },
-  { key: 'privateIp', title: '私网 IP', width: '10rem' },
-  { key: 'spec', title: '配置', width: '10rem' },
-  { key: 'createdAt', title: '创建时间', width: '12rem' },
+const cvmColumns: TableColumn[] = [
+  { key: 'account', label: '云账号', filterType: 'text', tone: 'muted' },
+  { key: 'id', label: '实例 ID' },
+  { key: 'name', label: '名称' },
+  { key: 'status', label: '状态' },
+  { key: 'publicIp', label: '公网 IP' },
+  { key: 'privateIp', label: '私网 IP' },
+  { key: 'spec', label: '配置' },
+  { key: 'createdAt', label: '创建时间', tone: 'muted' },
 ];
 
-const baseDatabaseColumns: TableColumn[] = [
-  { key: 'id', title: '实例 ID', width: '14rem' },
-  { key: 'name', title: '名称', width: '12rem' },
-  { key: 'type', title: '类型', width: '8rem' },
-  { key: 'status', title: '状态', width: '8rem' },
-  { key: 'address', title: '地址', width: '12rem' },
-  { key: 'storage', title: '存储', width: '8rem' },
-  { key: 'createdAt', title: '创建时间', width: '12rem' },
+const databaseColumns: TableColumn[] = [
+  { key: 'account', label: '云账号', filterType: 'text', tone: 'muted' },
+  { key: 'id', label: '实例 ID' },
+  { key: 'name', label: '名称' },
+  { key: 'type', label: '类型' },
+  { key: 'status', label: '状态' },
+  { key: 'address', label: '地址' },
+  { key: 'storage', label: '存储' },
+  { key: 'createdAt', label: '创建时间', tone: 'muted' },
 ];
 
 const isAllAccountsView = computed(() => activeScope.value === ALL_ACCOUNTS_SCOPE);
@@ -337,56 +339,13 @@ const resourceSwitchTabs = computed(() => [
   { id: 'cvm', label: '云服务器', badge: formatCount(cvmRows.value.length) },
   { id: 'database', label: '数据库', badge: formatCount(databaseRows.value.length) },
 ]);
+const visibleCvmColumns = computed<TableColumn[]>(() =>
+  isAllAccountsView.value ? cvmColumns : cvmColumns.filter((column) => column.key !== 'account'),
+);
 
-const balanceAvailableMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return '获取账户余额（Balance / RealBalance）';
-  }
-
-  return isAllAccountsView.value
-    ? `已聚合 ${formatCount(loadedAccountCount.value)} 个账号`
-    : `账户 UIN ${balanceSummary.value.uin}`;
-});
-
-const balanceCashMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return 'CashAccountBalance';
-  }
-
-  return `收益转入 ${balanceSummary.value.incomeBalance} / 赠送余额 ${balanceSummary.value.presentBalance}`;
-});
-
-const balanceCreditMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return 'CreditBalance / RealCreditBalance';
-  }
-
-  return `信用总额 ${balanceSummary.value.creditAmount} / 真实可用 ${balanceSummary.value.realCreditBalance}`;
-});
-
-const balanceOweMeta = computed(() => {
-  if (!balanceSummary.value) {
-    return 'OweAmount / FreezeAmount / TempCredit';
-  }
-
-  return `冻结金额 ${balanceSummary.value.freezeAmount} / 临时额度 ${balanceSummary.value.tempCredit}`;
-});
-
-const cvmColumns = computed<TableColumn[]>(() => {
-  if (!isAllAccountsView.value) {
-    return baseCvmColumns;
-  }
-
-  return [{ key: 'account', title: '云账号', width: '12rem' }, ...baseCvmColumns];
-});
-
-const databaseColumns = computed<TableColumn[]>(() => {
-  if (!isAllAccountsView.value) {
-    return baseDatabaseColumns;
-  }
-
-  return [{ key: 'account', title: '云账号', width: '12rem' }, ...baseDatabaseColumns];
-});
+const visibleDatabaseColumns = computed<TableColumn[]>(() =>
+  isAllAccountsView.value ? databaseColumns : databaseColumns.filter((column) => column.key !== 'account'),
+);
 
 const cvmStatusOptions = [
   { label: '全部状态', value: 'all' },
@@ -467,6 +426,40 @@ const databaseEmptyDescription = computed(() =>
     ? '全部账号下还没有可展示的数据库数据。'
     : '当前账号下还没有可展示的数据库数据。',
 );
+
+const balanceAvailableMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return '获取账户余额（Balance / RealBalance）';
+  }
+
+  return isAllAccountsView.value
+    ? `已聚合 ${formatCount(loadedAccountCount.value)} 个账号`
+    : `账户 UIN ${balanceSummary.value.uin}`;
+});
+
+const balanceCashMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return 'CashAccountBalance';
+  }
+
+  return `收益转入 ${balanceSummary.value.incomeBalance} / 赠送余额 ${balanceSummary.value.presentBalance}`;
+});
+
+const balanceCreditMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return 'CreditBalance / RealCreditBalance';
+  }
+
+  return `信用总额 ${balanceSummary.value.creditAmount} / 真实可用 ${balanceSummary.value.realCreditBalance}`;
+});
+
+const balanceOweMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return 'OweAmount / FreezeAmount / TempCredit';
+  }
+
+  return `冻结金额 ${balanceSummary.value.freezeAmount} / 临时额度 ${balanceSummary.value.tempCredit}`;
+});
 
 let loadSequence = 0;
 

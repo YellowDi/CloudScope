@@ -1,6 +1,6 @@
 <template>
   <TablePageTable
-    :columns="columns"
+    :columns="normalizedColumns"
     :rows="data"
     :row-key="rowKey"
     :loading="loading"
@@ -26,10 +26,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+import type { TableColumn as TablePageColumn } from '@/components/table-page/types';
 import type { TableColumn } from '@/services/types';
 import TablePageTable from '@/components/table-page/TablePageTable.vue';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     columns: TableColumn[];
     data: Record<string, unknown>[];
@@ -47,5 +49,13 @@ withDefaults(
     wrapperClass: '',
     tableClass: '',
   },
+);
+
+const normalizedColumns = computed<TablePageColumn[]>(() =>
+  props.columns.map((column) => ({
+    key: column.key,
+    label: column.title,
+    cellClass: column.align === 'center' ? 'text-center' : column.align === 'right' ? 'text-right' : undefined,
+  })),
 );
 </script>

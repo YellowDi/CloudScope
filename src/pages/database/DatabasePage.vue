@@ -1,11 +1,5 @@
 <template>
-  <section class="resource-page">
-    <PageHeader eyebrow="TencentDB" title="数据库实例" description="所有页面只消费转译后的 UI 模型，不直接依赖原始腾讯云字段。">
-      <template #actions>
-        <BaseButton label="刷新列表" variant="secondary" :loading="refreshing" @click="loadData(true)" />
-      </template>
-    </PageHeader>
-
+  <section class="flex min-h-0 flex-1 flex-col gap-6">
     <EmptyState
       v-if="showEmpty"
       title="暂无云账号"
@@ -15,33 +9,52 @@
     />
 
     <template v-else>
-      <p v-if="errorMessage" class="page-error">{{ errorMessage }}</p>
-      <div class="resource-page__table-wrap">
-        <TablePageTable :columns="columns" :rows="rows" row-key="id" :loading="loading">
-          <template #cell-status="{ row }">
-            <StatusTag :status="String(row.status)" />
-          </template>
-          <template #cell-createdAt="{ row }">
-            {{ formatDateTime(String(row.createdAt)) }}
-          </template>
-          <template #empty>
-            <EmptyState title="暂无数据库实例" description="当前账号下还没有可展示的数据库数据。" />
-          </template>
-        </TablePageTable>
+      <Alert v-if="errorMessage" variant="destructive">
+        <AlertTitle>加载失败</AlertTitle>
+        <AlertDescription>{{ errorMessage }}</AlertDescription>
+      </Alert>
+
+      <div class="flex justify-end">
+        <Button
+          variant="outline"
+          class="h-8 gap-1 px-3 text-[14px]"
+          :disabled="refreshing"
+          @click="loadData(true)"
+        >
+          <LoaderCircle v-if="refreshing" class="h-4 w-4 animate-spin" />
+          刷新数据
+        </Button>
       </div>
+
+      <TablePageTable :columns="columns" :rows="rows" row-key="id" :loading="loading" :show-index="true" :sticky-header="true" :edge-gutter="false">
+        <template #cell-status="{ row }">
+          <StatusTag :status="String(row.status)" />
+        </template>
+        <template #cell-createdAt="{ row }">
+          {{ formatDateTime(String(row.createdAt)) }}
+        </template>
+        <template #empty>
+          <EmptyState
+            title="暂无数据库实例"
+            description="当前账号下还没有可展示的数据库数据。"
+          />
+        </template>
+      </TablePageTable>
     </template>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import BaseButton from '@/components/BaseButton.vue';
+import { LoaderCircle } from 'lucide-vue-next';
 import EmptyState from '@/components/EmptyState.vue';
-import PageHeader from '@/components/PageHeader.vue';
 import StatusTag from '@/components/StatusTag.vue';
+import type { TableColumn } from '@/components/table-page/types';
 import TablePageTable from '@/components/table-page/TablePageTable.vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { getDatabaseList } from '@/services/database';
-import type { DatabaseListItem, TableColumn } from '@/services/types';
+import type { DatabaseListItem } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { formatDateTime } from '@/utils/time';
 
@@ -53,13 +66,41 @@ const rows = ref<DatabaseListItem[]>([]);
 const showEmpty = computed(() => !accountsStore.loading && !accountsStore.currentAccountId);
 
 const columns: TableColumn[] = [
-  { key: 'id', title: '实例 ID', width: '14rem' },
-  { key: 'name', title: '名称', width: '12rem' },
-  { key: 'type', title: '类型', width: '8rem' },
-  { key: 'status', title: '状态', width: '8rem' },
-  { key: 'address', title: '地址', width: '12rem' },
-  { key: 'storage', title: '存储', width: '8rem' },
-  { key: 'createdAt', title: '创建时间', width: '12rem' },
+  {
+    key: 'id',
+    label: '实例 ID',
+    filterType: 'text',
+  },
+  {
+    key: 'name',
+    label: '名称',
+    filterType: 'text',
+  },
+  {
+    key: 'type',
+    label: '类型',
+    filterType: 'tag',
+  },
+  {
+    key: 'status',
+    label: '状态',
+    filterType: 'tag',
+  },
+  {
+    key: 'address',
+    label: '地址',
+    filterType: 'text',
+  },
+  {
+    key: 'storage',
+    label: '存储',
+    filterType: 'text',
+  },
+  {
+    key: 'createdAt',
+    label: '创建时间',
+    tone: 'muted',
+  },
 ];
 
 async function loadData(isManual = false) {
@@ -95,23 +136,3 @@ watch(
   { immediate: true },
 );
 </script>
-
-<style scoped>
-.resource-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  min-height: 0;
-  flex: 1;
-}
-
-.resource-page__table-wrap {
-  min-height: 0;
-  flex: 1;
-}
-
-.page-error {
-  margin: 0;
-  color: var(--ds-color-accent-red);
-}
-</style>

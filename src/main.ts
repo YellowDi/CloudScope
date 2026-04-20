@@ -6,6 +6,7 @@ import { useAccountsStore } from './store/accounts';
 import { useAuthStore } from './store/auth';
 import { useThemeStore } from './store/theme';
 import './assets/index.css';
+import 'remixicon/fonts/remixicon.css';
 import 'vue-sonner/style.css';
 
 const app = createApp(App);

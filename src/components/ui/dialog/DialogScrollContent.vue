@@ -1,0 +1,64 @@
+<script setup lang="ts">
+import type { DialogContentEmits, DialogContentProps } from "reka-ui"
+import type { HTMLAttributes } from "vue"
+import { reactiveOmit } from "@vueuse/core"
+import { Cross2Icon } from '@radix-icons/vue'
+import {
+  DialogClose,
+  DialogContent,
+  DialogOverlay,
+  DialogPortal,
+  useForwardPropsEmits,
+} from "reka-ui"
+import { TooltipWrap } from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
+
+defineOptions({
+  inheritAttrs: false,
+})
+
+const props = defineProps<DialogContentProps & { class?: HTMLAttributes["class"] }>()
+const emits = defineEmits<DialogContentEmits>()
+
+const delegatedProps = reactiveOmit(props, "class")
+
+const forwarded = useForwardPropsEmits(delegatedProps, emits)
+</script>
+
+<template>
+  <DialogPortal>
+    <DialogOverlay
+      class="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-background/80 backdrop-blur-[3px] supports-backdrop-filter:bg-background/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+    >
+      <DialogContent
+        :class="
+          cn(
+            'dialog-panel-float relative z-50 grid w-full max-w-lg my-8 gap-4 bg-background p-4 shadow-(--shadow-card) sm:rounded-2xl md:w-full',
+            props.class,
+          )
+        "
+        v-bind="{ ...$attrs, ...forwarded }"
+        @pointer-down-outside="(event) => {
+          const originalEvent = event.detail.originalEvent;
+          const target = originalEvent.target as HTMLElement;
+          if (originalEvent.offsetX > target.clientWidth || originalEvent.offsetY > target.clientHeight) {
+            event.preventDefault();
+          }
+        }"
+      >
+        <slot />
+
+        <TooltipWrap content="关闭弹窗">
+          <DialogClose
+            aria-label="关闭弹窗"
+            type="button"
+            class="absolute top-4 right-4 rounded-md p-0.5 transition-colors hover:bg-secondary"
+          >
+            <Cross2Icon class="w-4 h-4" />
+            <span class="sr-only">关闭弹窗</span>
+          </DialogClose>
+        </TooltipWrap>
+      </DialogContent>
+    </DialogOverlay>
+  </DialogPortal>
+</template>

@@ -41,7 +41,7 @@
           </div>
         </div>
 
-        <div v-if="activeCategoryTab === 'tencent'" class="flex shrink-0 items-center justify-end pb-2 gap-2">
+        <div class="flex shrink-0 items-center justify-end pb-2 gap-2">
           <div class="ml-auto flex min-w-0 shrink-0 justify-end gap-2">
             <Button
               variant="outline"
@@ -50,9 +50,10 @@
               @click="reloadAccounts"
             >
               <LoaderCircle v-if="accountsStore.loading" class="h-4 w-4 animate-spin" />
-              重新拉取账号
+              刷新数据
             </Button>
             <Button
+              v-if="activeCategoryTab === 'tencent'"
               variant="default"
               class="h-8 px-3 text-[14px]"
               @click="openCreateDialog"
@@ -184,21 +185,6 @@
               </button>
 
               <div class="flex shrink-0 items-center gap-2">
-                <TooltipWrap content="刷新账号列表">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon-sm"
-                    class="rounded-lg"
-                    :disabled="accountsStore.loading"
-                    aria-label="刷新账号列表"
-                    @click="handleRefreshAccount"
-                  >
-                    <LoaderCircle v-if="accountsStore.loading" class="h-4 w-4 animate-spin" />
-                    <RefreshCw v-else class="h-4 w-4" />
-                  </Button>
-                </TooltipWrap>
-
                 <TooltipWrap content="编辑账号">
                   <Button
                     type="button"
@@ -330,7 +316,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import { ChevronDown, LoaderCircle, LogIn, PencilLine, RefreshCw } from 'lucide-vue-next';
+import { ChevronDown, LoaderCircle, LogIn, PencilLine } from 'lucide-vue-next';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseInput from '@/components/BaseInput.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -443,10 +429,6 @@ function toggleAccountDetails(accountId: string) {
   expandedAccountIds.value = isAccountExpanded(accountId)
     ? expandedAccountIds.value.filter((id) => id !== accountId)
     : [...expandedAccountIds.value, accountId];
-}
-
-function handleRefreshAccount() {
-  void reloadAccounts();
 }
 
 function handleQuickLogin(account: CloudAccount) {

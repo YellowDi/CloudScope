@@ -132,27 +132,27 @@
       <div class="flex min-h-0 flex-1 flex-col gap-4">
         <Tabs v-model="activeResourceTab" class="flex min-h-0 flex-1 flex-col gap-4">
           <div class="flex flex-col gap-3 md:flex-row md:flex-nowrap md:items-center md:justify-between">
-            <TabsList class="h-9 w-fit shrink-0 gap-1.5 rounded-full bg-transparent p-0">
+            <TabsList class="gap-1.5 rounded-full bg-[var(--surface-secondary)] p-[3px]">
               <TabsTrigger
                 value="cvm"
-                class="h-9 rounded-full pl-4 pr-2 text-sm font-semibold text-foreground/70 transition-colors hover:text-foreground data-[state=active]:bg-[oklch(96.6%_0.005_106.5)] data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:bg-muted"
+                class="rounded-full pl-4 pr-2 text-sm font-semibold"
               >
                 云服务器
                 <span
-                  :class="activeResourceTab === 'cvm' ? 'bg-foreground text-background' : 'bg-muted text-foreground/55'"
-                  class="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold leading-none transition-colors"
+                  :class="activeResourceTab === 'cvm' ? 'bg-foreground text-background' : 'bg-background text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]'"
+                  class="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none transition-colors"
                 >
                   {{ formatCount(cvmRows.length) }}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="database"
-                class="h-9 rounded-full pl-4 pr-2 text-sm font-semibold text-foreground/70 transition-colors hover:text-foreground data-[state=active]:bg-[oklch(96.6%_0.005_106.5)] data-[state=active]:text-foreground data-[state=active]:shadow-none dark:data-[state=active]:bg-muted"
+                class="rounded-full pl-4 pr-2 text-sm font-semibold"
               >
                 数据库
                 <span
-                  :class="activeResourceTab === 'database' ? 'bg-foreground text-background' : 'bg-muted text-foreground/55'"
-                  class="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold leading-none transition-colors"
+                  :class="activeResourceTab === 'database' ? 'bg-foreground text-background' : 'bg-background text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]'"
+                  class="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none transition-colors"
                 >
                   {{ formatCount(databaseRows.length) }}
                 </span>
@@ -204,7 +204,7 @@
 
           <TabsContent value="cvm" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <BaseTable :columns="cvmColumns" :data="filteredCvmRows" row-key="rowId" :loading="loading">
+              <TablePageTable :columns="cvmColumns" :rows="filteredCvmRows" row-key="rowId" :loading="loading">
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -217,13 +217,13 @@
                     :description="hasCvmFilters ? '请调整搜索关键词或状态筛选条件。' : cvmEmptyDescription"
                   />
                 </template>
-              </BaseTable>
+              </TablePageTable>
             </div>
           </TabsContent>
 
           <TabsContent value="database" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <BaseTable :columns="databaseColumns" :data="filteredDatabaseRows" row-key="rowId" :loading="loading">
+              <TablePageTable :columns="databaseColumns" :rows="filteredDatabaseRows" row-key="rowId" :loading="loading">
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -236,7 +236,7 @@
                     :description="hasDatabaseFilters ? '请调整搜索关键词、状态或类型筛选条件。' : databaseEmptyDescription"
                   />
                 </template>
-              </BaseTable>
+              </TablePageTable>
             </div>
           </TabsContent>
         </Tabs>
@@ -249,10 +249,10 @@
 import { computed, ref, watch } from 'vue';
 import { LoaderCircle } from 'lucide-vue-next';
 import BaseSelect from '@/components/BaseSelect.vue';
-import BaseTable from '@/components/BaseTable.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import StatCard from '@/components/StatCard.vue';
 import StatusTag from '@/components/StatusTag.vue';
+import TablePageTable from '@/components/table-page/TablePageTable.vue';
 import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

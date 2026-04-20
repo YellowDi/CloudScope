@@ -36,11 +36,11 @@ const badgeVariant = computed(() => (tone.value === 'error' ? 'destructive' : 's
 
 const badgeClass = computed(() => {
   if (tone.value === 'success') {
-    return 'border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50';
+    return 'border-transparent bg-[var(--success-surface)] text-[var(--success)] hover:bg-[var(--success-surface)]';
   }
   if (tone.value === 'warning') {
-    return 'border-transparent bg-pink-50 text-pink-700 hover:bg-pink-50';
+    return 'border-transparent bg-[var(--warning-surface)] text-[var(--warning-foreground)] hover:bg-[var(--warning-surface)]';
   }
-  return 'border-transparent bg-red-50 text-red-600 hover:bg-red-50';
+  return 'border-transparent bg-[var(--destructive-surface)] text-destructive hover:bg-[var(--destructive-surface)]';
 });
 </script>

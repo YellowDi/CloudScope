@@ -17,7 +17,7 @@
     <template v-else>
       <p v-if="errorMessage" class="page-error">{{ errorMessage }}</p>
       <div class="resource-page__table-wrap">
-        <BaseTable :columns="columns" :data="rows" row-key="id" :loading="loading">
+        <TablePageTable :columns="columns" :rows="rows" row-key="id" :loading="loading">
           <template #cell-status="{ row }">
             <StatusTag :status="String(row.status)" />
           </template>
@@ -27,7 +27,7 @@
           <template #empty>
             <EmptyState title="暂无 CVM 实例" description="当前账号下还没有可展示的云服务器数据。" />
           </template>
-        </BaseTable>
+        </TablePageTable>
       </div>
     </template>
   </section>
@@ -36,10 +36,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import BaseButton from '@/components/BaseButton.vue';
-import BaseTable from '@/components/BaseTable.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import StatusTag from '@/components/StatusTag.vue';
+import TablePageTable from '@/components/table-page/TablePageTable.vue';
 import { getCvmList } from '@/services/cvm';
 import type { CvmListItem, TableColumn } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';

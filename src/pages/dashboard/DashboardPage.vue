@@ -1,16 +1,70 @@
 <template>
   <section class="flex flex-1 flex-col gap-6">
-    <PageHeader eyebrow="Dashboard" title="资源总览" description="统计当前云账号下的 CVM 与 TencentDB 资源状态。">
-      <template #actions>
-        <AccountSwitcher />
-        <BaseButton label="刷新数据" variant="secondary" :loading="refreshing" @click="loadData(true)" />
-      </template>
-    </PageHeader>
+    <header class="flex flex-col gap-4">
+      <div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-2">
+        <h1 class="leading-none font-semibold tracking-tight text-foreground text-[32px] sm:text-[40px] xl:text-[48px]">
+            资源总览
+        </h1>
+        <p class="max-w-3xl text-[18px] leading-none font-normal text-muted-foreground sm:text-[20px]">
+          支持查看全部账号聚合数据，也可切换到单个账号查看 CVM 与 TencentDB 资源状态。
+        </p>
+      </div>
+
+      <div
+        v-if="!showEmpty"
+        class="flex flex-col gap-3 border-b border-border md:flex-row md:items-end md:justify-between"
+      >
+        <div class="relative min-w-0 flex-1 overflow-visible">
+          <div
+            class="min-w-0 -mt-1 overflow-x-auto whitespace-nowrap pt-1"
+          >
+            <nav class="relative flex min-w-max flex-nowrap items-center text-[14px]">
+              <button
+                v-for="tab in accountScopeTabs"
+                :key="tab.value"
+                :ref="(element) => setAccountTabRef(tab.value, element)"
+                type="button"
+                :title="tab.title"
+                :aria-pressed="activeScope === tab.value"
+                :class="[
+                  'group relative shrink-0 px-3 pb-[11px] text-muted-foreground transition-colors hover:text-foreground',
+                  'duration-180 ease-out',
+                  activeScope === tab.value ? 'font-semibold text-foreground' : '',
+                ]"
+                @click="handleSelectScope(tab.value)"
+              >
+                <span class="relative isolate inline-block">
+                  <span class="pointer-events-none absolute -inset-x-2 -inset-y-1 rounded-md transition-colors group-hover:[background:var(--interactive-hover,rgba(0,0,0,0.045))] group-focus-visible:[background:var(--interactive-hover,rgba(0,0,0,0.045))]" />
+                  <span class="relative z-10">{{ tab.label }}</span>
+                </span>
+              </button>
+              <span
+                aria-hidden="true"
+                class="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-foreground transition-[transform,width,opacity] duration-300 ease-out"
+                :style="accountIndicatorStyle"
+              />
+            </nav>
+          </div>
+        </div>
+
+        <div class="flex shrink-0 items-center justify-end pb-2">
+          <Button
+            variant="outline"
+            class="h-8 gap-1 px-3 text-[14px]"
+            :disabled="refreshing"
+            @click="loadData(true)"
+          >
+            <LoaderCircle v-if="refreshing" class="h-4 w-4 animate-spin" />
+            刷新数据
+          </Button>
+        </div>
+      </div>
+    </header>
 
     <EmptyState
       v-if="showEmpty"
       title="暂无云账号"
-      description="请先创建并选择一个云账号，再查看资源概览。"
+      description="请先创建云账号，再查看资源概览。"
       action-label="前往账号管理"
       action-to="/accounts"
     />
@@ -52,31 +106,31 @@
         <StatCard
           label="账户可用余额"
           :value="balanceSummary?.availableBalance ?? '--'"
-          :meta="balanceSummary ? `账户 UIN ${balanceSummary.uin}` : '获取账户余额（Balance / RealBalance）'"
+          :meta="balanceAvailableMeta"
           :loading="loading"
         />
         <StatCard
           label="现金账户余额"
           :value="balanceSummary?.cashBalance ?? '--'"
-          :meta="balanceSummary ? `收益转入 ${balanceSummary.incomeBalance} / 赠送余额 ${balanceSummary.presentBalance}` : 'CashAccountBalance'"
+          :meta="balanceCashMeta"
           :loading="loading"
         />
         <StatCard
           label="可用信用额度"
           :value="balanceSummary?.creditBalance ?? '--'"
-          :meta="balanceSummary ? `信用总额 ${balanceSummary.creditAmount} / 真实可用 ${balanceSummary.realCreditBalance}` : 'CreditBalance / RealCreditBalance'"
+          :meta="balanceCreditMeta"
           :loading="loading"
         />
         <StatCard
           label="欠费金额"
           :value="balanceSummary?.oweAmount ?? '--'"
-          :meta="balanceSummary ? `冻结金额 ${balanceSummary.freezeAmount} / 临时额度 ${balanceSummary.tempCredit}` : 'OweAmount / FreezeAmount / TempCredit'"
+          :meta="balanceOweMeta"
           :loading="loading"
         />
       </div>
 
       <div class="flex min-h-0 flex-1 flex-col gap-4">
-        <Tabs v-model="activeTab" class="flex min-h-0 flex-1 flex-col gap-4">
+        <Tabs v-model="activeResourceTab" class="flex min-h-0 flex-1 flex-col gap-4">
           <div class="flex flex-col gap-3 md:flex-row md:flex-nowrap md:items-center md:justify-between">
             <TabsList class="h-9 w-fit shrink-0 gap-1.5 rounded-full bg-transparent p-0">
               <TabsTrigger
@@ -85,7 +139,7 @@
               >
                 云服务器
                 <span
-                  :class="activeTab === 'cvm' ? 'bg-foreground text-background' : 'bg-muted text-foreground/55'"
+                  :class="activeResourceTab === 'cvm' ? 'bg-foreground text-background' : 'bg-muted text-foreground/55'"
                   class="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold leading-none transition-colors"
                 >
                   {{ formatCount(cvmRows.length) }}
@@ -97,7 +151,7 @@
               >
                 数据库
                 <span
-                  :class="activeTab === 'database' ? 'bg-foreground text-background' : 'bg-muted text-foreground/55'"
+                  :class="activeResourceTab === 'database' ? 'bg-foreground text-background' : 'bg-muted text-foreground/55'"
                   class="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold leading-none transition-colors"
                 >
                   {{ formatCount(databaseRows.length) }}
@@ -105,7 +159,7 @@
               </TabsTrigger>
             </TabsList>
 
-            <div v-if="activeTab === 'cvm'" class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <div v-if="activeResourceTab === 'cvm'" class="flex min-w-0 items-center gap-1.5 sm:gap-2">
               <Input
                 v-model="cvmSearchKeyword"
                 class="h-9 min-w-0 flex-1"
@@ -150,7 +204,7 @@
 
           <TabsContent value="cvm" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <BaseTable :columns="cvmColumns" :data="filteredCvmRows" row-key="id" :loading="loading">
+              <BaseTable :columns="cvmColumns" :data="filteredCvmRows" row-key="rowId" :loading="loading">
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -160,7 +214,7 @@
                 <template #empty>
                   <EmptyState
                     :title="hasCvmFilters ? '没有匹配的 CVM 实例' : '暂无 CVM 实例'"
-                    :description="hasCvmFilters ? '请调整搜索关键词或状态筛选条件。' : '当前账号下还没有可展示的云服务器数据。'"
+                    :description="hasCvmFilters ? '请调整搜索关键词或状态筛选条件。' : cvmEmptyDescription"
                   />
                 </template>
               </BaseTable>
@@ -169,7 +223,7 @@
 
           <TabsContent value="database" class="mt-0 min-h-0 flex-1">
             <div class="flex min-h-0 flex-1 flex-col">
-              <BaseTable :columns="databaseColumns" :data="filteredDatabaseRows" row-key="id" :loading="loading">
+              <BaseTable :columns="databaseColumns" :data="filteredDatabaseRows" row-key="rowId" :loading="loading">
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
@@ -179,7 +233,7 @@
                 <template #empty>
                   <EmptyState
                     :title="hasDatabaseFilters ? '没有匹配的数据库实例' : '暂无数据库实例'"
-                    :description="hasDatabaseFilters ? '请调整搜索关键词、状态或类型筛选条件。' : '当前账号下还没有可展示的数据库数据。'"
+                    :description="hasDatabaseFilters ? '请调整搜索关键词、状态或类型筛选条件。' : databaseEmptyDescription"
                   />
                 </template>
               </BaseTable>
@@ -193,44 +247,66 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import AccountSwitcher from '@/components/AccountSwitcher.vue';
-import BaseButton from '@/components/BaseButton.vue';
+import { LoaderCircle } from 'lucide-vue-next';
 import BaseSelect from '@/components/BaseSelect.vue';
 import BaseTable from '@/components/BaseTable.vue';
 import EmptyState from '@/components/EmptyState.vue';
-import PageHeader from '@/components/PageHeader.vue';
 import StatCard from '@/components/StatCard.vue';
 import StatusTag from '@/components/StatusTag.vue';
+import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getAccountBalance } from '@/services/billing';
+import { getAccountBalanceResponse } from '@/services/billing';
 import { getCvmList } from '@/services/cvm';
 import { getDatabaseList } from '@/services/database';
-import { buildDashboardStats } from '@/services/translators';
+import { buildDashboardStats, translateAccountBalance } from '@/services/translators';
 import type {
   AccountBalanceSummary,
+  CloudAccount,
   CvmListItem,
   DashboardStats,
   DatabaseListItem,
   TableColumn,
+  TencentAccountBalanceResponse,
 } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
-import { formatCount } from '@/utils/format';
+import { formatCount, formatCurrencyFromCent } from '@/utils/format';
 import { formatDateTime } from '@/utils/time';
 
+type DashboardCvmRow = CvmListItem & {
+  rowId: string;
+  accountId: string;
+  account: string;
+};
+
+type DashboardDatabaseRow = DatabaseListItem & {
+  rowId: string;
+  accountId: string;
+  account: string;
+};
+
+type DashboardAccountData = {
+  cvmList: DashboardCvmRow[];
+  databaseList: DashboardDatabaseRow[];
+  balance: TencentAccountBalanceResponse;
+};
+
+const ALL_ACCOUNTS_SCOPE = 'all';
 const accountsStore = useAccountsStore();
 const stats = ref<DashboardStats | null>(null);
 const balanceSummary = ref<AccountBalanceSummary | null>(null);
-const cvmRows = ref<CvmListItem[]>([]);
-const databaseRows = ref<DatabaseListItem[]>([]);
+const cvmRows = ref<DashboardCvmRow[]>([]);
+const databaseRows = ref<DashboardDatabaseRow[]>([]);
 const loading = ref(true);
 const refreshing = ref(false);
 const errorMessage = ref('');
-const showEmpty = computed(() => !accountsStore.loading && !accountsStore.currentAccountId);
-const activeTab = ref<'cvm' | 'database'>('cvm');
+const loadedAccountCount = ref(0);
+const showEmpty = computed(() => !accountsStore.loading && accountsStore.accountList.length === 0);
+const activeScope = ref(ALL_ACCOUNTS_SCOPE);
+const activeResourceTab = ref<'cvm' | 'database'>('cvm');
 const showBalanceCards = ref(false);
 const cvmSearchKeyword = ref('');
 const cvmStatusFilter = ref('all');
@@ -238,7 +314,7 @@ const databaseSearchKeyword = ref('');
 const databaseStatusFilter = ref('all');
 const databaseTypeFilter = ref('all');
 
-const cvmColumns: TableColumn[] = [
+const baseCvmColumns: TableColumn[] = [
   { key: 'id', title: '实例 ID', width: '14rem' },
   { key: 'name', title: '名称', width: '12rem' },
   { key: 'status', title: '状态', width: '8rem' },
@@ -247,6 +323,83 @@ const cvmColumns: TableColumn[] = [
   { key: 'spec', title: '配置', width: '10rem' },
   { key: 'createdAt', title: '创建时间', width: '12rem' },
 ];
+
+const baseDatabaseColumns: TableColumn[] = [
+  { key: 'id', title: '实例 ID', width: '14rem' },
+  { key: 'name', title: '名称', width: '12rem' },
+  { key: 'type', title: '类型', width: '8rem' },
+  { key: 'status', title: '状态', width: '8rem' },
+  { key: 'address', title: '地址', width: '12rem' },
+  { key: 'storage', title: '存储', width: '8rem' },
+  { key: 'createdAt', title: '创建时间', width: '12rem' },
+];
+
+const isAllAccountsView = computed(() => activeScope.value === ALL_ACCOUNTS_SCOPE);
+const accountScopeTabs = computed(() => [
+  { value: ALL_ACCOUNTS_SCOPE, label: '全部', title: undefined },
+  ...accountsStore.accountList.map((account) => ({
+    value: account.id,
+    label: account.name,
+    title: `${account.name} · ${account.region}`,
+  })),
+]);
+const {
+  indicatorStyle: accountIndicatorStyle,
+  setTabRef: setAccountTabRef,
+} = useSlidingTabIndicator({
+  activeKey: activeScope,
+  watchSource: computed(() => accountScopeTabs.value.map((tab) => `${tab.value}:${tab.label}`)),
+});
+
+const balanceAvailableMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return '获取账户余额（Balance / RealBalance）';
+  }
+
+  return isAllAccountsView.value
+    ? `已聚合 ${formatCount(loadedAccountCount.value)} 个账号`
+    : `账户 UIN ${balanceSummary.value.uin}`;
+});
+
+const balanceCashMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return 'CashAccountBalance';
+  }
+
+  return `收益转入 ${balanceSummary.value.incomeBalance} / 赠送余额 ${balanceSummary.value.presentBalance}`;
+});
+
+const balanceCreditMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return 'CreditBalance / RealCreditBalance';
+  }
+
+  return `信用总额 ${balanceSummary.value.creditAmount} / 真实可用 ${balanceSummary.value.realCreditBalance}`;
+});
+
+const balanceOweMeta = computed(() => {
+  if (!balanceSummary.value) {
+    return 'OweAmount / FreezeAmount / TempCredit';
+  }
+
+  return `冻结金额 ${balanceSummary.value.freezeAmount} / 临时额度 ${balanceSummary.value.tempCredit}`;
+});
+
+const cvmColumns = computed<TableColumn[]>(() => {
+  if (!isAllAccountsView.value) {
+    return baseCvmColumns;
+  }
+
+  return [{ key: 'account', title: '云账号', width: '12rem' }, ...baseCvmColumns];
+});
+
+const databaseColumns = computed<TableColumn[]>(() => {
+  if (!isAllAccountsView.value) {
+    return baseDatabaseColumns;
+  }
+
+  return [{ key: 'account', title: '云账号', width: '12rem' }, ...baseDatabaseColumns];
+});
 
 const cvmStatusOptions = [
   { label: '全部状态', value: 'all' },
@@ -276,7 +429,7 @@ const filteredCvmRows = computed(() => {
   return cvmRows.value.filter((row) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [row.id, row.name, row.publicIp, row.privateIp, row.spec]
+      [row.id, row.name, row.publicIp, row.privateIp, row.spec, row.account]
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
@@ -292,7 +445,7 @@ const filteredDatabaseRows = computed(() => {
   return databaseRows.value.filter((row) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [row.id, row.name, row.type, row.address]
+      [row.id, row.name, row.type, row.address, row.account]
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
@@ -316,6 +469,20 @@ const hasDatabaseFilters = computed(
     databaseTypeFilter.value !== 'all',
 );
 
+const cvmEmptyDescription = computed(() =>
+  isAllAccountsView.value
+    ? '全部账号下还没有可展示的云服务器数据。'
+    : '当前账号下还没有可展示的云服务器数据。',
+);
+
+const databaseEmptyDescription = computed(() =>
+  isAllAccountsView.value
+    ? '全部账号下还没有可展示的数据库数据。'
+    : '当前账号下还没有可展示的数据库数据。',
+);
+
+let loadSequence = 0;
+
 function resetCvmFilters() {
   cvmSearchKeyword.value = '';
   cvmStatusFilter.value = 'all';
@@ -327,22 +494,125 @@ function resetDatabaseFilters() {
   databaseTypeFilter.value = 'all';
 }
 
-const databaseColumns: TableColumn[] = [
-  { key: 'id', title: '实例 ID', width: '14rem' },
-  { key: 'name', title: '名称', width: '12rem' },
-  { key: 'type', title: '类型', width: '8rem' },
-  { key: 'status', title: '状态', width: '8rem' },
-  { key: 'address', title: '地址', width: '12rem' },
-  { key: 'storage', title: '存储', width: '8rem' },
-  { key: 'createdAt', title: '创建时间', width: '12rem' },
-];
+function handleSelectScope(value: string) {
+  activeScope.value = value;
+}
+
+function clearDashboardData() {
+  stats.value = null;
+  balanceSummary.value = null;
+  cvmRows.value = [];
+  databaseRows.value = [];
+  loadedAccountCount.value = 0;
+}
+
+function getTargetAccounts() {
+  if (isAllAccountsView.value) {
+    return accountsStore.accountList;
+  }
+
+  return accountsStore.accountList.filter((account) => account.id === activeScope.value);
+}
+
+function attachAccountToCvmRows(account: CloudAccount, rows: CvmListItem[]): DashboardCvmRow[] {
+  const accountLabel = `${account.name} · ${account.region}`;
+
+  return rows.map((row) => ({
+    ...row,
+    rowId: `${account.id}:${row.id}`,
+    accountId: account.id,
+    account: accountLabel,
+  }));
+}
+
+function attachAccountToDatabaseRows(account: CloudAccount, rows: DatabaseListItem[]): DashboardDatabaseRow[] {
+  const accountLabel = `${account.name} · ${account.region}`;
+
+  return rows.map((row) => ({
+    ...row,
+    rowId: `${account.id}:${row.id}`,
+    accountId: account.id,
+    account: accountLabel,
+  }));
+}
+
+function mergeAccountBalances(balances: TencentAccountBalanceResponse[]): AccountBalanceSummary | null {
+  if (balances.length === 0) {
+    return null;
+  }
+
+  const totals = balances.reduce(
+    (result, { Response: payload }) => {
+      result.balance += payload.Balance;
+      result.cashBalance += payload.CashAccountBalance;
+      result.incomeBalance += payload.IncomeIntoAccountBalance;
+      result.presentBalance += payload.PresentAccountBalance;
+      result.freezeAmount += payload.FreezeAmount;
+      result.oweAmount += payload.OweAmount;
+      result.creditAmount += payload.CreditAmount;
+      result.creditBalance += payload.CreditBalance;
+      result.realCreditBalance += payload.RealCreditBalance;
+      result.tempCredit += payload.TempCredit;
+      result.tempAmountInfoList.push(...payload.TempAmountInfoList);
+      return result;
+    },
+    {
+      balance: 0,
+      cashBalance: 0,
+      incomeBalance: 0,
+      presentBalance: 0,
+      freezeAmount: 0,
+      oweAmount: 0,
+      creditAmount: 0,
+      creditBalance: 0,
+      realCreditBalance: 0,
+      tempCredit: 0,
+      tempAmountInfoList: [] as TencentAccountBalanceResponse['Response']['TempAmountInfoList'],
+    },
+  );
+
+  return {
+    uin: `${balances.length} 个账号`,
+    availableBalance: formatCurrencyFromCent(totals.balance),
+    cashBalance: formatCurrencyFromCent(totals.cashBalance),
+    incomeBalance: formatCurrencyFromCent(totals.incomeBalance),
+    presentBalance: formatCurrencyFromCent(totals.presentBalance),
+    freezeAmount: formatCurrencyFromCent(totals.freezeAmount),
+    oweAmount: formatCurrencyFromCent(totals.oweAmount),
+    creditAmount: formatCurrencyFromCent(totals.creditAmount),
+    creditBalance: formatCurrencyFromCent(totals.creditBalance),
+    realCreditBalance: formatCurrencyFromCent(totals.realCreditBalance),
+    tempCredit: formatCurrencyFromCent(totals.tempCredit),
+    tempAmountInfoList: totals.tempAmountInfoList.map((item) => ({
+      uin: item.Uin,
+      tempAmount: formatCurrencyFromCent(item.TempAmount),
+      startTime: item.StartTime,
+      endTime: item.EndTime,
+    })),
+  };
+}
+
+async function loadAccountDashboard(account: CloudAccount): Promise<DashboardAccountData> {
+  const [cvmList, databaseList, balance] = await Promise.all([
+    getCvmList(account.id),
+    getDatabaseList(account.id),
+    getAccountBalanceResponse(account.id),
+  ]);
+
+  return {
+    cvmList: attachAccountToCvmRows(account, cvmList),
+    databaseList: attachAccountToDatabaseRows(account, databaseList),
+    balance,
+  };
+}
 
 async function loadData(isManual = false) {
-  if (!accountsStore.currentAccountId) {
-    stats.value = null;
-    balanceSummary.value = null;
-    cvmRows.value = [];
-    databaseRows.value = [];
+  const requestId = ++loadSequence;
+  const targetAccounts = getTargetAccounts();
+
+  if (targetAccounts.length === 0) {
+    clearDashboardData();
+    errorMessage.value = '';
     loading.value = accountsStore.loading;
     refreshing.value = false;
     return;
@@ -356,30 +626,89 @@ async function loadData(isManual = false) {
   }
 
   try {
-    const [cvmList, databaseList, balance] = await Promise.all([
-      getCvmList(accountsStore.currentAccountId),
-      getDatabaseList(accountsStore.currentAccountId),
-      getAccountBalance(accountsStore.currentAccountId),
-    ]);
-    cvmRows.value = cvmList;
-    databaseRows.value = databaseList;
-    balanceSummary.value = balance;
+    const results = await Promise.allSettled(targetAccounts.map((account) => loadAccountDashboard(account)));
+
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    const successful = results.flatMap((result) => (
+      result.status === 'fulfilled' ? [result.value] : []
+    ));
+    const failedAccounts = results.flatMap((result, index) => (
+      result.status === 'rejected' ? [targetAccounts[index].name] : []
+    ));
+
+    if (successful.length === 0) {
+      clearDashboardData();
+      errorMessage.value =
+        failedAccounts.length > 0
+          ? `账号 ${failedAccounts.join('、')} 数据加载失败`
+          : '加载统计失败';
+      return;
+    }
+
+    cvmRows.value = successful.flatMap((item) => item.cvmList);
+    databaseRows.value = successful.flatMap((item) => item.databaseList);
+    loadedAccountCount.value = successful.length;
+
+    const balanceResponses = successful.map((item) => item.balance);
+    balanceSummary.value =
+      !isAllAccountsView.value && balanceResponses.length === 1
+        ? translateAccountBalance(balanceResponses[0])
+        : mergeAccountBalances(balanceResponses);
+
+    stats.value = buildDashboardStats(cvmRows.value, databaseRows.value);
     resetCvmFilters();
     resetDatabaseFilters();
-    stats.value = buildDashboardStats(cvmList, databaseList);
+
+    if (failedAccounts.length > 0) {
+      errorMessage.value = `部分账号加载失败：${failedAccounts.join('、')}`;
+    }
   } catch (error) {
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    clearDashboardData();
     errorMessage.value = error instanceof Error ? error.message : '加载统计失败';
   } finally {
-    loading.value = false;
-    refreshing.value = false;
+    if (requestId === loadSequence) {
+      loading.value = false;
+      refreshing.value = false;
+    }
   }
 }
 
 watch(
-  () => accountsStore.currentAccountId,
+  () => accountsStore.accountList.map((account) => account.id).join(','),
+  () => {
+    if (accountsStore.accountList.length === 0) {
+      activeScope.value = ALL_ACCOUNTS_SCOPE;
+      return;
+    }
+
+    if (
+      activeScope.value !== ALL_ACCOUNTS_SCOPE &&
+      !accountsStore.accountList.some((account) => account.id === activeScope.value)
+    ) {
+      activeScope.value = ALL_ACCOUNTS_SCOPE;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [accountsStore.loading, activeScope.value, accountsStore.accountList.map((account) => account.id).join(',')].join('|'),
   () => {
     void loadData(false);
   },
   { immediate: true },
 );
+
+watch(activeScope, (value) => {
+  if (value !== ALL_ACCOUNTS_SCOPE && value !== accountsStore.currentAccountId) {
+    accountsStore.selectAccount(value);
+  }
+});
 </script>

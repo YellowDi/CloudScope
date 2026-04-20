@@ -168,7 +168,7 @@
                   :options="cvmStatusOptions"
                 />
               </div>
-              <Button variant="outline" size="sm" class="shrink-0" @click="resetCvmFilters">清空筛选</Button>
+              <Button variant="outline" class="h-9 shrink-0 px-3 text-sm" @click="resetCvmFilters">清空筛选</Button>
             </div>
 
             <div v-else class="flex min-w-0 items-center gap-1.5 sm:gap-2">
@@ -189,7 +189,7 @@
                   :options="databaseTypeOptions"
                 />
               </div>
-              <Button variant="outline" size="sm" class="shrink-0" @click="resetDatabaseFilters">清空筛选</Button>
+              <Button variant="outline" class="h-9 shrink-0 px-3 text-sm" @click="resetDatabaseFilters">清空筛选</Button>
             </div>
           </div>
 

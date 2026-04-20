@@ -1,10 +1,8 @@
 import type { RequestOptions } from './types';
 import { ApiError } from '@/lib/api-errors';
-import { handleMockRequest } from '@/mock/router';
 import { TOKEN_STORAGE_KEY } from '@/store/auth';
 
 const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 function normalizeBaseUrl(value?: string) {
   return value?.trim().replace(/\/+$/, '') ?? '';
@@ -73,13 +71,6 @@ export async function request<TResponse, TBody = unknown>(
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-  }
-
-  if (USE_MOCK) {
-    return handleMockRequest<TResponse>({
-      ...options,
-      headers,
-    });
   }
 
   try {

@@ -13,20 +13,28 @@
           </div>
         </div>
 
-        <nav class="flex min-w-0 flex-1 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap md:justify-center">
-          <Button
-            v-for="item in navItems"
-            :key="item.to"
-            as-child
-            :variant="route.path === item.to ? 'secondary' : 'ghost'"
-            size="sm"
-            class="shrink-0"
+        <div class="min-w-0 flex-1 overflow-visible">
+          <nav
+            aria-label="主导航"
+            data-app-header-nav
+            class="-my-1 flex min-w-0 overflow-x-auto px-1 py-1 whitespace-nowrap"
           >
-            <RouterLink :to="item.to">
-              {{ item.label }}
-            </RouterLink>
-          </Button>
-        </nav>
+            <div class="flex min-w-max flex-1 items-center justify-end gap-2 md:justify-center">
+              <Button
+                v-for="item in navItems"
+                :key="item.to"
+                as-child
+                :variant="route.path === item.to ? 'secondary' : 'ghost'"
+                size="sm"
+                class="shrink-0"
+              >
+                <RouterLink :to="item.to">
+                  {{ item.label }}
+                </RouterLink>
+              </Button>
+            </div>
+          </nav>
+        </div>
 
         <div class="shrink-0">
           <UserMenu />

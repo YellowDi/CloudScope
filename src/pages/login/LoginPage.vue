@@ -9,7 +9,7 @@
         </div>
       </div>
       <p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">登录保护</p>
-      <CardDescription>仅实现前端 mock 认证，任意非空用户名和密码即可登录。</CardDescription>
+      <CardDescription>请输入账号凭据登录系统。</CardDescription>
     </CardHeader>
 
     <CardContent>

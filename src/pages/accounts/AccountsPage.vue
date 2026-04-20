@@ -14,13 +14,6 @@
 
           <div class="ml-auto flex min-w-0 shrink-0 justify-end gap-2">
             <Button
-              variant="default"
-              class="h-8 px-3 text-[14px]"
-              @click="openCreateDialog"
-            >
-              添加云账号
-            </Button>
-            <Button
               variant="outline"
               class="h-8 gap-1 px-3 text-[14px]"
               :disabled="accountsStore.loading"
@@ -28,6 +21,13 @@
             >
               <LoaderCircle v-if="accountsStore.loading" class="h-4 w-4 animate-spin" />
               重新拉取账号
+            </Button>
+            <Button
+              variant="default"
+              class="h-8 px-3 text-[14px]"
+              @click="openCreateDialog"
+            >
+              添加云账号
             </Button>
           </div>
         </div>

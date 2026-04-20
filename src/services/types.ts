@@ -9,8 +9,6 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
-export type AccountStatus = 'connected' | 'error';
-
 export interface CloudAccount {
   id: string;
   name: string;

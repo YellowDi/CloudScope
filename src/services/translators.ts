@@ -25,6 +25,11 @@ const DB_STATUS_MAP: Record<string, string> = {
   ISOLATED: '隔离中',
 };
 
+const CHARGE_TYPE_MAP: Record<string, string> = {
+  PREPAID: '包年包月',
+  POSTPAID_BY_HOUR: '按量计费',
+};
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -160,6 +165,14 @@ function normalizeCloudDashboardStatus(status?: string): CloudDashboardInstanceI
   return CVM_STATUS_MAP[status] ?? status;
 }
 
+function normalizeChargeType(chargeType?: string): string {
+  if (!chargeType) {
+    return '--';
+  }
+
+  return CHARGE_TYPE_MAP[chargeType] ?? chargeType;
+}
+
 export function translateCloudDashboardList(
   response: unknown,
 ): CloudDashboardListResult {
@@ -197,7 +210,7 @@ export function translateCloudDashboardList(
       privateIp,
       spec: formatCloudDashboardSpec(instance),
       zone: readString(instance, ['Zone', 'zone']) || '--',
-      chargeType: readString(instance, ['InstanceChargeType', 'instanceChargeType']) || '--',
+      chargeType: normalizeChargeType(readString(instance, ['InstanceChargeType', 'instanceChargeType'])),
       expiredTime: readString(instance, ['ExpiredTime', 'expiredTime']),
       remark: readString(instance, ['Remark', 'remark']) || '--',
     };
@@ -273,7 +286,7 @@ export function translateDatabaseDashboardList(
       privateIp,
       storage: readString(instance, ['DiskSize', 'diskSize']) || (volume !== undefined ? formatStorage(volume) : '--'),
       zone: readString(instance, ['Zone', 'zone']) || '--',
-      chargeType: readString(instance, ['InstanceChargeType', 'instanceChargeType']) || '--',
+      chargeType: normalizeChargeType(readString(instance, ['InstanceChargeType', 'instanceChargeType'])),
       expiredTime: readString(instance, ['ExpiredTime', 'expiredTime']),
     };
   });

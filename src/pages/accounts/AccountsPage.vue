@@ -237,7 +237,7 @@ import {
 import type { CloudAccount } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { useAppStore } from '@/store/app';
-import { formatDateTime } from '@/utils/time';
+import { formatDateTimeWithMinutes } from '@/utils/time';
 
 type DialogMode = 'create' | 'edit';
 
@@ -419,7 +419,7 @@ function formatOptionalDateTime(value?: string) {
     return '--';
   }
 
-  return formatDateTime(value);
+  return formatDateTimeWithMinutes(value);
 }
 
 function formatCurrency(value?: number) {

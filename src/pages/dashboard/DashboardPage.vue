@@ -200,8 +200,25 @@
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
-                <template #cell-expiredTime="{ row }">
-                  {{ row.expiredTime ? formatDateTime(String(row.expiredTime)) : '--' }}
+                <template #cell-chargeType="{ row }">
+                  <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
+                    <span
+                      class="shrink-0 rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium"
+                      :class="getExpirationInfo(row).badgeClass"
+                    >
+                      {{ getChargeTypeLabel(row) }}
+                    </span>
+                    <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
+                      {{ getExpirationInfo(row).dateText }}
+                    </p>
+                    <p
+                      v-if="getExpirationInfo(row).relativeText"
+                      class="shrink-0 text-xs leading-4"
+                      :class="getExpirationInfo(row).textClass"
+                    >
+                      {{ getExpirationInfo(row).relativeText }}
+                    </p>
+                  </div>
                 </template>
                 <template #empty>
                   <EmptyState
@@ -259,8 +276,25 @@
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
-                <template #cell-expiredTime="{ row }">
-                  {{ row.expiredTime ? formatDateTime(String(row.expiredTime)) : '--' }}
+                <template #cell-chargeType="{ row }">
+                  <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
+                    <span
+                      class="shrink-0 rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium"
+                      :class="getExpirationInfo(row).badgeClass"
+                    >
+                      {{ getChargeTypeLabel(row) }}
+                    </span>
+                    <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
+                      {{ getExpirationInfo(row).dateText }}
+                    </p>
+                    <p
+                      v-if="getExpirationInfo(row).relativeText"
+                      class="shrink-0 text-xs leading-4"
+                      :class="getExpirationInfo(row).textClass"
+                    >
+                      {{ getExpirationInfo(row).relativeText }}
+                    </p>
+                  </div>
                 </template>
                 <template #empty>
                   <EmptyState
@@ -347,14 +381,33 @@ import type {
 } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { formatCount, formatCurrencyFromCent } from '@/utils/format';
-import { formatDateTime } from '@/utils/time';
+import { formatDateTimeWithMinutes } from '@/utils/time';
 
 type DashboardAccountData = {
   balance: TencentAccountBalanceResponse;
 };
 
+type ExpirationInfo = {
+  dateText: string;
+  relativeText: string;
+  progressPercent: number | null;
+  badgeClass: string;
+  fillClass: string;
+  textClass: string;
+};
+
 const ALL_ACCOUNTS_SCOPE = 'all';
 const DASHBOARD_PAGE_SIZE = 10;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const EXPIRING_SOON_DAYS = 30;
+const DEFAULT_EXPIRATION_INFO: ExpirationInfo = {
+  dateText: '--',
+  relativeText: '',
+  progressPercent: null,
+  badgeClass: 'bg-muted text-muted-foreground',
+  fillClass: 'bg-muted-foreground/40',
+  textClass: 'text-muted-foreground',
+};
 const accountsStore = useAccountsStore();
 const stats = ref<DashboardStats | null>(null);
 const balanceSummary = ref<AccountBalanceSummary | null>(null);
@@ -381,12 +434,11 @@ const cvmColumns: TableColumn[] = [
   { key: 'id', label: '实例 ID' },
   { key: 'name', label: '名称' },
   { key: 'status', label: '状态' },
+  { key: 'chargeType', label: '到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
   { key: 'publicIp', label: '公网 IP' },
   { key: 'privateIp', label: '私网 IP' },
   { key: 'spec', label: '配置' },
   { key: 'zone', label: '可用区', tone: 'muted' },
-  { key: 'chargeType', label: '计费模式', tone: 'muted' },
-  { key: 'expiredTime', label: '到期时间', tone: 'muted' },
   { key: 'remark', label: '备注', tone: 'muted' },
 ];
 
@@ -396,12 +448,11 @@ const databaseColumns: TableColumn[] = [
   { key: 'name', label: '名称' },
   { key: 'type', label: '类型' },
   { key: 'status', label: '状态' },
+  { key: 'chargeType', label: '到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
   { key: 'publicIp', label: '公网 IP' },
   { key: 'privateIp', label: '私网 IP' },
   { key: 'storage', label: '存储' },
   { key: 'zone', label: '可用区', tone: 'muted' },
-  { key: 'chargeType', label: '计费模式', tone: 'muted' },
-  { key: 'expiredTime', label: '到期时间', tone: 'muted' },
 ];
 
 const isAllAccountsView = computed(() => activeScope.value === ALL_ACCOUNTS_SCOPE);
@@ -458,13 +509,40 @@ const databaseTypeOptions = computed(() => {
   ];
 });
 
+const cvmDisplayRows = computed(() =>
+  cvmRows.value.map((row) => ({
+    ...row,
+    expirationInfo: buildExpirationInfo(row.chargeType, row.expiredTime),
+  })),
+);
+
+const databaseDisplayRows = computed(() =>
+  databaseRows.value.map((row) => ({
+    ...row,
+    expirationInfo: buildExpirationInfo(row.chargeType, row.expiredTime),
+  })),
+);
+
 const filteredCvmRows = computed(() => {
   const keyword = cvmSearchKeyword.value.trim().toLowerCase();
 
-  return cvmRows.value.filter((row) => {
+  return cvmDisplayRows.value.filter((row) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [row.id, row.name, row.publicIp, row.privateIp, row.spec, row.account, row.zone, row.chargeType, row.remark]
+      [
+        row.id,
+        row.name,
+        row.publicIp,
+        row.privateIp,
+        row.spec,
+        row.account,
+        row.zone,
+        row.chargeType,
+        row.expiredTime,
+        row.expirationInfo.dateText,
+        row.expirationInfo.relativeText,
+        row.remark,
+      ]
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
@@ -477,10 +555,23 @@ const filteredCvmRows = computed(() => {
 const filteredDatabaseRows = computed(() => {
   const keyword = databaseSearchKeyword.value.trim().toLowerCase();
 
-  return databaseRows.value.filter((row) => {
+  return databaseDisplayRows.value.filter((row) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [row.id, row.name, row.type, row.publicIp, row.privateIp, row.storage, row.zone, row.account]
+      [
+        row.id,
+        row.name,
+        row.type,
+        row.publicIp,
+        row.privateIp,
+        row.storage,
+        row.zone,
+        row.account,
+        row.chargeType,
+        row.expiredTime,
+        row.expirationInfo.dateText,
+        row.expirationInfo.relativeText,
+      ]
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
@@ -613,6 +704,90 @@ function buildPageSummary(page: number, total: number) {
   const start = (page - 1) * DASHBOARD_PAGE_SIZE + 1;
   const end = Math.min(total, page * DASHBOARD_PAGE_SIZE);
   return `显示第 ${formatCount(start)} - ${formatCount(end)} 条，共 ${formatCount(total)} 条`;
+}
+
+function getCalendarDayDiff(expiredTime: string): number | null {
+  if (!expiredTime) {
+    return null;
+  }
+
+  const targetDate = new Date(expiredTime);
+  if (Number.isNaN(targetDate.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  const targetDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  return Math.round((targetDay.getTime() - todayDay.getTime()) / DAY_IN_MS);
+}
+
+function buildExpirationInfo(chargeType: string, expiredTime: string): ExpirationInfo {
+  if (!expiredTime) {
+    return {
+      dateText: chargeType === '按量计费' ? '无固定到期' : '--',
+      relativeText: '',
+      progressPercent: null,
+      badgeClass: 'bg-muted text-muted-foreground',
+      fillClass: 'bg-muted-foreground/40',
+      textClass: 'text-muted-foreground',
+    };
+  }
+
+  const dayDiff = getCalendarDayDiff(expiredTime);
+  const dateText = formatDateTimeWithMinutes(expiredTime);
+  if (dayDiff === null || dateText === '--') {
+    return {
+      dateText: '--',
+      relativeText: '',
+      progressPercent: null,
+      badgeClass: 'bg-muted text-muted-foreground',
+      fillClass: 'bg-muted-foreground/40',
+      textClass: 'text-muted-foreground',
+    };
+  }
+
+  if (dayDiff < 0) {
+    return {
+      dateText,
+      relativeText: `到期 ${Math.abs(dayDiff)} 天`,
+      progressPercent: Math.min(100, Math.max(14, Math.abs(dayDiff) / EXPIRING_SOON_DAYS * 100)),
+      badgeClass: 'bg-rose-500/12 text-rose-700',
+      fillClass: 'bg-rose-500',
+      textClass: 'text-rose-700',
+    };
+  }
+
+  if (dayDiff <= EXPIRING_SOON_DAYS) {
+    return {
+      dateText,
+      relativeText: `还剩 ${dayDiff} 天`,
+      progressPercent: Math.max(14, dayDiff / EXPIRING_SOON_DAYS * 100),
+      badgeClass: 'bg-rose-500/12 text-rose-700',
+      fillClass: 'bg-rose-500',
+      textClass: 'text-rose-700',
+    };
+  }
+
+  return {
+    dateText,
+    relativeText: `还剩 ${dayDiff} 天`,
+    progressPercent: 100,
+    badgeClass: 'bg-emerald-500/12 text-emerald-700',
+    fillClass: 'bg-emerald-500',
+    textClass: 'text-emerald-700',
+  };
+}
+
+function getExpirationInfo(row: unknown): ExpirationInfo {
+  const expirationInfo = (row as { expirationInfo?: ExpirationInfo } | null)?.expirationInfo;
+  return expirationInfo ?? DEFAULT_EXPIRATION_INFO;
+}
+
+function getChargeTypeLabel(row: unknown): string {
+  const chargeType = (row as { chargeType?: unknown } | null)?.chargeType;
+  return typeof chargeType === 'string' && chargeType.trim() ? chargeType : '--';
 }
 
 async function loadCloudDashboardRows(): Promise<CloudDashboardInstanceItem[]> {

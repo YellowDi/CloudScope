@@ -318,6 +318,7 @@
   }
 
   .dark [data-slot="input"]:not([disabled]):not([aria-invalid="true"]):hover:not(:focus-visible),
+  .dark [data-slot="select-trigger"]:not([data-disabled]):hover:not(:focus-visible),
   .dark input:not([type="hidden"]):not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible),
   .dark textarea:not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible),
   .dark select:not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible) {
@@ -325,6 +326,7 @@
   }
 
   .dark [data-slot="input"],
+  .dark [data-slot="select-trigger"],
   .dark input:not([type="hidden"]),
   .dark textarea,
   .dark select {
@@ -341,6 +343,7 @@
   .top-tab-switch-content,
   .top-tab-switch-badge,
   .dark [data-slot="input"],
+  .dark [data-slot="select-trigger"],
   .dark input:not([type="hidden"]),
   .dark textarea,
   .dark select {

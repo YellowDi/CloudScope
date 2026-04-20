@@ -1,8 +1,8 @@
 <template>
-  <div class="grid min-w-0 gap-2">
+  <div class="grid min-w-0 gap-1.5">
     <label v-if="label" class="text-sm font-medium text-foreground">{{ label }}</label>
     <Select :model-value="modelValue" @update:model-value="handleUpdate">
-      <SelectTrigger class="h-9">
+      <SelectTrigger class="h-9 w-full min-w-0 rounded-md bg-background text-sm">
         <SelectValue :placeholder="placeholder ?? '请选择'" />
       </SelectTrigger>
       <SelectContent>

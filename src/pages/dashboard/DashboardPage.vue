@@ -96,7 +96,7 @@
         <StatCard label="运行中实例数" :value="formatCount(stats?.runningCount ?? 0)" meta="跨资源聚合统计" :loading="loading" />
         <StatCard label="异常实例数" :value="formatCount(stats?.abnormalCount ?? 0)" meta="所有非运行态实例" :loading="loading" />
         <Card
-          class="cursor-pointer border-border bg-muted shadow-sm transition-colors hover:border-primary/40"
+          class="cursor-pointer border-border bg-muted shadow-none transition-colors hover:border-primary/40"
           @click="showBalanceCards = !showBalanceCards"
         >
           <CardContent class="flex min-w-0 flex-col gap-2 p-3">
@@ -168,10 +168,7 @@
                   :options="cvmStatusOptions"
                 />
               </div>
-              <p class="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
-                {{ formatCount(filteredCvmRows.length) }} / {{ formatCount(cvmRows.length) }}
-              </p>
-              <Button variant="ghost" size="sm" class="shrink-0" @click="resetCvmFilters">清空筛选</Button>
+              <Button variant="outline" size="sm" class="shrink-0" @click="resetCvmFilters">清空筛选</Button>
             </div>
 
             <div v-else class="flex min-w-0 items-center gap-1.5 sm:gap-2">
@@ -192,10 +189,7 @@
                   :options="databaseTypeOptions"
                 />
               </div>
-              <p class="shrink-0 whitespace-nowrap text-xs text-muted-foreground sm:text-sm">
-                {{ formatCount(filteredDatabaseRows.length) }} / {{ formatCount(databaseRows.length) }}
-              </p>
-              <Button variant="ghost" size="sm" class="shrink-0" @click="resetDatabaseFilters">清空筛选</Button>
+              <Button variant="outline" size="sm" class="shrink-0" @click="resetDatabaseFilters">清空筛选</Button>
             </div>
           </div>
 

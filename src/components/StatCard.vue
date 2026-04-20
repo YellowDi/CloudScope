@@ -1,5 +1,5 @@
 <template>
-  <Card class="border-border bg-muted shadow-sm">
+  <Card class="border-border bg-muted shadow-none">
     <CardContent class="flex min-w-0 flex-col gap-2 p-3">
       <p class="truncate whitespace-nowrap text-xs text-muted-foreground">{{ label }}</p>
       <SkeletonLoader v-if="loading" kind="text" :rows="2" />

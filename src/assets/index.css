@@ -316,13 +316,34 @@
       margin-left 180ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: opacity, transform;
   }
+
+  .dark [data-slot="input"]:not([disabled]):not([aria-invalid="true"]):hover:not(:focus-visible),
+  .dark input:not([type="hidden"]):not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible),
+  .dark textarea:not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible),
+  .dark select:not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible) {
+    border-color: var(--border-hover);
+  }
+
+  .dark [data-slot="input"],
+  .dark input:not([type="hidden"]),
+  .dark textarea,
+  .dark select {
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      background 180ms ease !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .top-tab-switch-shell,
   .top-tab-switch-bg,
   .top-tab-switch-content,
-  .top-tab-switch-badge {
+  .top-tab-switch-badge,
+  .dark [data-slot="input"],
+  .dark input:not([type="hidden"]),
+  .dark textarea,
+  .dark select {
     transition: none !important;
   }
 }

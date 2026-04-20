@@ -1,12 +1,13 @@
 <template>
-  <label class="grid gap-2">
+  <label class="grid gap-1.5">
     <span class="text-sm font-medium text-foreground">{{ label }}</span>
     <Input
       :model-value="modelValue"
       :type="type"
       :placeholder="placeholder"
       :autocomplete="autocomplete"
-      @update:model-value="$emit('update:modelValue', $event)"
+      class="h-9"
+      @update:model-value="$emit('update:modelValue', String($event ?? ''))"
     />
   </label>
 </template>

@@ -132,14 +132,14 @@
       <div class="flex min-h-0 flex-1 flex-col gap-4">
         <Tabs v-model="activeResourceTab" class="flex min-h-0 flex-1 flex-col gap-4">
           <div class="flex flex-col gap-3 md:flex-row md:flex-nowrap md:items-center md:justify-between">
-            <TabsList class="gap-1.5 rounded-full bg-[var(--surface-secondary)] p-[3px]">
+            <TabsList class="gap-1.5 rounded-full bg-surface-secondary p-[3px]">
               <TabsTrigger
                 value="cvm"
                 class="rounded-full pl-4 pr-2 text-sm font-semibold"
               >
                 云服务器
                 <span
-                  :class="activeResourceTab === 'cvm' ? 'bg-foreground text-background' : 'bg-background text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]'"
+                  :class="activeResourceTab === 'cvm' ? 'bg-foreground text-background' : 'bg-background text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)]'"
                   class="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none transition-colors"
                 >
                   {{ formatCount(cvmRows.length) }}
@@ -151,7 +151,7 @@
               >
                 数据库
                 <span
-                  :class="activeResourceTab === 'database' ? 'bg-foreground text-background' : 'bg-background text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]'"
+                  :class="activeResourceTab === 'database' ? 'bg-foreground text-background' : 'bg-background text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)]'"
                   class="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none transition-colors"
                 >
                   {{ formatCount(databaseRows.length) }}

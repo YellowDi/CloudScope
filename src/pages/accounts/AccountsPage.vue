@@ -1,5 +1,5 @@
 <template>
-  <section class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
+  <section class="-mt-8 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
     <header
       class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       :style="{ top: 'var(--table-page-sticky-top)' }"

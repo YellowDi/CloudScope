@@ -9,7 +9,7 @@
           <img src="/logo.png" alt="CloudScope logo" class="h-9 w-9 shrink-0 rounded-md object-cover" />
           <div class="hidden min-w-0 sm:block">
             <p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">CloudScope</p>
-            <h1 class="truncate text-sm font-semibold tracking-tight text-foreground">腾讯云资源监控看板</h1>
+            <h1 class="truncate text-sm font-semibold tracking-tight text-foreground">云资源监控看板</h1>
           </div>
         </div>
 

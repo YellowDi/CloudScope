@@ -15,14 +15,52 @@ export interface CloudAccount {
   id: string;
   name: string;
   region: string;
-  status: AccountStatus;
+  status: string;
+  statusCode?: number;
   lastSyncedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  uuid?: string;
+  recordId?: number;
+  uin?: string;
+  balance?: number;
+  cashAccountBalance?: number;
+  freezeAmount?: number;
+  oweAmount?: number;
+  presentAccountBalance?: number;
   credentialConfigured?: boolean;
 }
 
 export interface CreateAccountPayload {
   name: string;
   region: string;
+}
+
+export interface TencentAccountListRequest {
+  Full: boolean;
+  PageNum: number;
+  PageSize: number;
+}
+
+export interface TencentAccountListItem {
+  Balance?: number;
+  CashAccountBalance?: number;
+  CreatedAt?: string;
+  FreezeAmount?: number;
+  Id?: number;
+  Name?: string;
+  OweAmount?: number;
+  PresentAccountBalance?: number;
+  Region?: string;
+  Status?: number;
+  Uin?: number;
+  UpdatedAt?: string;
+  Uuid?: string;
+}
+
+export interface TencentAccountListResponse {
+  List: TencentAccountListItem[];
+  Total: number;
 }
 
 export interface TencentCvmInstance {

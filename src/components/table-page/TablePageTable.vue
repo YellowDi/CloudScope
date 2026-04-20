@@ -120,7 +120,7 @@ const props = withDefaults(defineProps<{
   listLevelTable: true,
   stickyThead: false,
   endSpacer: true,
-  showIndexCheckbox: true,
+  showIndexCheckbox: false,
   edgeGutter: true,
   showRowActionIcons: false,
   alignToHeaderAtWide: false,

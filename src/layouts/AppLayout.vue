@@ -1,6 +1,9 @@
 <template>
-  <div class="min-h-screen bg-background">
-    <header class="sticky top-0 z-20 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+  <div class="min-h-screen bg-background" :style="layoutStyle">
+    <header
+      ref="headerRef"
+      class="sticky top-0 z-20 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+    >
       <div class="mx-auto flex min-h-16 w-full max-w-6xl items-center gap-3 px-4 py-3">
         <div class="flex min-w-0 shrink-0 items-center gap-3">
           <img src="/logo.png" alt="CloudScope logo" class="h-9 w-9 shrink-0 rounded-md object-cover" />
@@ -38,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { Button } from '@/components/ui/button';
 import UserMenu from '@/components/UserMenu.vue';
@@ -47,11 +51,42 @@ import { useAppStore } from '@/store/app';
 const accountsStore = useAccountsStore();
 const appStore = useAppStore();
 const route = useRoute();
+const headerRef = ref<HTMLElement | null>(null);
+const headerHeight = ref(0);
+
+const layoutStyle = computed(() => ({
+  '--table-page-sticky-top': `${headerHeight.value}px`,
+}));
 
 const navItems = [
   { label: '总览', to: '/dashboard' },
   { label: '云账号', to: '/accounts' },
 ];
+
+let resizeObserver: ResizeObserver | null = null;
+
+function syncHeaderHeight() {
+  headerHeight.value = headerRef.value?.getBoundingClientRect().height ?? 0;
+}
+
+onMounted(() => {
+  syncHeaderHeight();
+
+  if (typeof ResizeObserver !== 'undefined' && headerRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      syncHeaderHeight();
+    });
+    resizeObserver.observe(headerRef.value);
+  }
+
+  window.addEventListener('resize', syncHeaderHeight);
+});
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  window.removeEventListener('resize', syncHeaderHeight);
+});
 
 if (accountsStore.accountList.length === 0 && !accountsStore.loading) {
   void accountsStore.hydrateFromService().catch((error) => {

@@ -91,17 +91,17 @@
       </Alert>
 
       <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="CVM 总数" :value="formatCount(stats?.cvmTotal ?? 0)" meta="腾讯云云服务器实例" :loading="loading" />
-        <StatCard label="数据库总数" :value="formatCount(stats?.databaseTotal ?? 0)" meta="TencentDB 实例" :loading="loading" />
-        <StatCard label="运行中实例数" :value="formatCount(stats?.runningCount ?? 0)" meta="跨资源聚合统计" :loading="loading" />
-        <StatCard label="异常实例数" :value="formatCount(stats?.abnormalCount ?? 0)" meta="所有非运行态实例" :loading="loading" />
+        <StatCard label="CVM 总数" :value="formatCount(stats.cvmTotal)" meta="腾讯云云服务器实例" :loading="cvmLoading" />
+        <StatCard label="数据库总数" :value="formatCount(stats.databaseTotal)" meta="TencentDB 实例" :loading="databaseLoading" />
+        <StatCard label="运行中实例数" :value="formatCount(stats.runningCount)" meta="跨资源聚合统计" :loading="aggregateStatsLoading" />
+        <StatCard label="异常实例数" :value="formatCount(stats.abnormalCount)" meta="所有非运行态实例" :loading="aggregateStatsLoading" />
         <Card
           class="cursor-pointer border-border bg-muted shadow-none transition-colors hover:border-primary/40"
           @click="showBalanceCards = !showBalanceCards"
         >
           <CardContent class="flex min-w-0 flex-col gap-2 p-3">
             <p class="truncate whitespace-nowrap text-xs text-muted-foreground">账户余额</p>
-            <template v-if="loading">
+            <template v-if="balanceLoading">
               <h3 class="truncate whitespace-nowrap text-2xl font-semibold tracking-tight text-foreground">--</h3>
               <p class="truncate whitespace-nowrap text-xs text-muted-foreground">点击展开现金、信用与欠费明细</p>
             </template>
@@ -122,25 +122,25 @@
           label="账户可用余额"
           :value="balanceSummary?.availableBalance ?? '--'"
           :meta="balanceAvailableMeta"
-          :loading="loading"
+          :loading="balanceLoading"
         />
         <StatCard
           label="现金账户余额"
           :value="balanceSummary?.cashBalance ?? '--'"
           :meta="balanceCashMeta"
-          :loading="loading"
+          :loading="balanceLoading"
         />
         <StatCard
           label="可用信用额度"
           :value="balanceSummary?.creditBalance ?? '--'"
           :meta="balanceCreditMeta"
-          :loading="loading"
+          :loading="balanceLoading"
         />
         <StatCard
           label="欠费金额"
           :value="balanceSummary?.oweAmount ?? '--'"
           :meta="balanceOweMeta"
-          :loading="loading"
+          :loading="balanceLoading"
         />
       </div>
 
@@ -199,7 +199,7 @@
                 :columns="visibleCvmColumns"
                 :rows="paginatedCvmRows"
                 row-key="rowId"
-                :loading="loading"
+                :loading="cvmLoading"
                 :show-index="true"
                 :sticky-header="true"
                 :edge-gutter="true"
@@ -275,7 +275,7 @@
                 :columns="visibleDatabaseColumns"
                 :rows="paginatedDatabaseRows"
                 row-key="rowId"
-                :loading="loading"
+                :loading="databaseLoading"
                 :show-index="true"
                 :sticky-header="true"
                 :edge-gutter="true"
@@ -419,13 +419,16 @@ const DEFAULT_EXPIRATION_INFO: ExpirationInfo = {
   textClass: 'text-muted-foreground',
 };
 const accountsStore = useAccountsStore();
-const stats = ref<DashboardStats | null>(null);
 const balanceSummary = ref<AccountBalanceSummary | null>(null);
 const cvmRows = ref<CloudDashboardInstanceItem[]>([]);
 const databaseRows = ref<DatabaseDashboardInstanceItem[]>([]);
-const loading = ref(true);
+const cvmLoading = ref(true);
+const databaseLoading = ref(true);
+const balanceLoading = ref(true);
 const refreshing = ref(false);
-const errorMessage = ref('');
+const cvmErrorMessage = ref('');
+const databaseErrorMessage = ref('');
+const balanceErrorMessage = ref('');
 const loadedAccountCount = ref(0);
 const showEmpty = computed(() => !accountsStore.loading && accountsStore.accountList.length === 0);
 const activeScope = ref(ALL_ACCOUNTS_SCOPE);
@@ -493,6 +496,13 @@ const resourceSwitchTabs = computed(() => [
   { id: 'cvm', label: '云服务器', badge: formatCount(cvmRows.value.length) },
   { id: 'database', label: '数据库', badge: formatCount(databaseRows.value.length) },
 ]);
+const stats = computed<DashboardStats>(() => buildDashboardStats(cvmRows.value, databaseRows.value));
+const aggregateStatsLoading = computed(() => cvmLoading.value || databaseLoading.value);
+const errorMessage = computed(() =>
+  [cvmErrorMessage.value, databaseErrorMessage.value, balanceErrorMessage.value]
+    .filter(Boolean)
+    .join('；'),
+);
 const visibleCvmColumns = computed<TableColumn[]>(() =>
   isAllAccountsView.value ? cvmColumns : cvmColumns.filter((column) => column.key !== 'account'),
 );
@@ -699,11 +709,16 @@ function handleResourceTabChange(value: string) {
 }
 
 function clearDashboardData() {
-  stats.value = null;
   balanceSummary.value = null;
   cvmRows.value = [];
   databaseRows.value = [];
   loadedAccountCount.value = 0;
+}
+
+function clearSectionErrors() {
+  cvmErrorMessage.value = '';
+  databaseErrorMessage.value = '';
+  balanceErrorMessage.value = '';
 }
 
 function getTargetAccounts() {
@@ -896,38 +911,65 @@ async function loadAccountDashboard(account: CloudAccount): Promise<DashboardAcc
   };
 }
 
-async function loadData(isManual = false) {
-  const requestId = ++loadSequence;
-  const targetAccounts = getTargetAccounts();
-
-  if (targetAccounts.length === 0) {
-    clearDashboardData();
-    errorMessage.value = '';
-    loading.value = accountsStore.loading;
-    refreshing.value = false;
-    return;
-  }
-
-  errorMessage.value = '';
-  if (isManual) {
-    refreshing.value = true;
-  } else {
-    loading.value = true;
-  }
-
+async function loadCvmSection(requestId: number, preserveExistingData: boolean) {
   try {
-    const [cvmResult, databaseResult, results] = await Promise.all([
-      loadCloudDashboardRows().then((value) => ({ status: 'fulfilled' as const, value })).catch((reason) => ({
-        status: 'rejected' as const,
-        reason,
-      })),
-      loadDatabaseDashboardRows().then((value) => ({ status: 'fulfilled' as const, value })).catch((reason) => ({
-        status: 'rejected' as const,
-        reason,
-      })),
-      Promise.allSettled(targetAccounts.map((account) => loadAccountDashboard(account))),
-    ]);
+    const rows = await loadCloudDashboardRows();
+    if (requestId !== loadSequence) {
+      return;
+    }
 
+    cvmRows.value = rows;
+  } catch (error) {
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    if (!preserveExistingData) {
+      cvmRows.value = [];
+    }
+
+    const message = error instanceof Error ? error.message : '加载失败';
+    cvmErrorMessage.value = `云服务器列表加载失败：${message}`;
+  } finally {
+    if (requestId === loadSequence) {
+      cvmLoading.value = false;
+    }
+  }
+}
+
+async function loadDatabaseSection(requestId: number, preserveExistingData: boolean) {
+  try {
+    const rows = await loadDatabaseDashboardRows();
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    databaseRows.value = rows;
+  } catch (error) {
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    if (!preserveExistingData) {
+      databaseRows.value = [];
+    }
+
+    const message = error instanceof Error ? error.message : '加载失败';
+    databaseErrorMessage.value = `数据库列表加载失败：${message}`;
+  } finally {
+    if (requestId === loadSequence) {
+      databaseLoading.value = false;
+    }
+  }
+}
+
+async function loadBalanceSection(
+  requestId: number,
+  targetAccounts: CloudAccount[],
+  preserveExistingData: boolean,
+) {
+  try {
+    const results = await Promise.allSettled(targetAccounts.map((account) => loadAccountDashboard(account)));
     if (requestId !== loadSequence) {
       return;
     }
@@ -935,68 +977,75 @@ async function loadData(isManual = false) {
     const successful = results.flatMap((result) => (
       result.status === 'fulfilled' ? [result.value] : []
     ));
-    const failedAccounts = results.flatMap((result, index) => (
-      result.status === 'rejected' ? [targetAccounts[index].name] : []
-    ));
-
-    cvmRows.value = cvmResult.status === 'fulfilled' ? cvmResult.value : [];
-    databaseRows.value = databaseResult.status === 'fulfilled' ? databaseResult.value : [];
-    loadedAccountCount.value = successful.length;
-
-    if (cvmResult.status === 'rejected' && databaseResult.status === 'rejected' && successful.length === 0) {
-      clearDashboardData();
-      const baseErrors = [
-        cvmResult.reason instanceof Error ? cvmResult.reason.message : '云服务器列表加载失败',
-        databaseResult.reason instanceof Error ? databaseResult.reason.message : '数据库列表加载失败',
-      ];
-      if (failedAccounts.length > 0) {
-        baseErrors.push(`账号数据加载失败：${failedAccounts.join('、')}`);
+    const failedDetails = results.flatMap((result, index) => {
+      if (result.status !== 'rejected') {
+        return [];
       }
-      errorMessage.value = baseErrors.join('；');
-      return;
+
+      const reason = result.reason instanceof Error ? result.reason.message : '加载失败';
+      return [`${targetAccounts[index].name}（${reason}）`];
+    });
+
+    if (successful.length > 0) {
+      loadedAccountCount.value = successful.length;
+      const balanceResponses = successful.map((item) => item.balance);
+      balanceSummary.value =
+        !isAllAccountsView.value && balanceResponses.length === 1
+          ? translateAccountBalance(balanceResponses[0])
+          : mergeAccountBalances(balanceResponses);
+    } else if (!preserveExistingData) {
+      loadedAccountCount.value = 0;
+      balanceSummary.value = null;
     }
 
-    const balanceResponses = successful.map((item) => item.balance);
-    balanceSummary.value =
-      !isAllAccountsView.value && balanceResponses.length === 1
-        ? translateAccountBalance(balanceResponses[0])
-        : mergeAccountBalances(balanceResponses);
-
-    stats.value = buildDashboardStats(cvmRows.value, databaseRows.value);
-    resetCvmFilters();
-    resetDatabaseFilters();
-
-    const errorMessages: string[] = [];
-
-    if (cvmResult.status === 'rejected') {
-      errorMessages.push(
-        cvmResult.reason instanceof Error ? cvmResult.reason.message : '云服务器列表加载失败',
-      );
+    if (failedDetails.length > 0) {
+      balanceErrorMessage.value =
+        successful.length > 0
+          ? `部分账号余额加载失败：${failedDetails.join('、')}`
+          : `账号余额加载失败：${failedDetails.join('、')}`;
     }
-    if (databaseResult.status === 'rejected') {
-      errorMessages.push(
-        databaseResult.reason instanceof Error ? databaseResult.reason.message : '数据库列表加载失败',
-      );
-    }
-    if (failedAccounts.length > 0) {
-      errorMessages.push(`部分账号加载失败：${failedAccounts.join('、')}`);
-    }
-
-    if (errorMessages.length > 0) {
-      errorMessage.value = errorMessages.join('；');
-    }
-  } catch (error) {
-    if (requestId !== loadSequence) {
-      return;
-    }
-
-    clearDashboardData();
-    errorMessage.value = error instanceof Error ? error.message : '加载统计失败';
   } finally {
     if (requestId === loadSequence) {
-      loading.value = false;
-      refreshing.value = false;
+      balanceLoading.value = false;
     }
+  }
+}
+
+async function loadData(isManual = false) {
+  const requestId = ++loadSequence;
+  const targetAccounts = getTargetAccounts();
+  const preserveExistingData = isManual;
+
+  if (targetAccounts.length === 0) {
+    clearDashboardData();
+    clearSectionErrors();
+    cvmLoading.value = accountsStore.loading;
+    databaseLoading.value = accountsStore.loading;
+    balanceLoading.value = accountsStore.loading;
+    refreshing.value = false;
+    return;
+  }
+
+  clearSectionErrors();
+  if (isManual) {
+    refreshing.value = true;
+  } else {
+    clearDashboardData();
+    resetCvmFilters();
+    resetDatabaseFilters();
+    cvmLoading.value = true;
+    databaseLoading.value = true;
+    balanceLoading.value = true;
+  }
+
+  await Promise.allSettled([
+    loadCvmSection(requestId, preserveExistingData),
+    loadDatabaseSection(requestId, preserveExistingData),
+    loadBalanceSection(requestId, targetAccounts, preserveExistingData),
+  ]);
+
+  if (requestId === loadSequence) {
+    refreshing.value = false;
   }
 }
 

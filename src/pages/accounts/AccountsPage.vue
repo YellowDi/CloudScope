@@ -52,14 +52,9 @@
         <Card
           v-for="account in rows"
           :key="account.id"
-          class="cursor-pointer border-border shadow-sm transition-colors hover:border-primary/30"
-          tabindex="0"
-          role="button"
-          @click="openEditDialog(account)"
-          @keydown.enter.prevent="openEditDialog(account)"
-          @keydown.space.prevent="openEditDialog(account)"
+          class="border-border shadow-sm transition-colors hover:border-primary/30"
         >
-          <CardHeader class="gap-3 p-4 pb-0">
+          <CardHeader class="gap-2 p-4 pb-0">
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
                 <CardTitle class="truncate text-lg">{{ account.name }}</CardTitle>
@@ -71,56 +66,86 @@
             </div>
           </CardHeader>
 
-          <CardContent class="grid gap-4 p-4">
-            <div class="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">地域</p>
-                <p class="font-medium text-foreground">{{ account.region }}</p>
+          <CardContent class="grid gap-3 p-4">
+            <div class="grid grid-cols-2 gap-2 text-muted-foreground">
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">地域</p>
+                <p class="truncate text-sm font-medium text-foreground">{{ account.region }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">账户 UIN</p>
-                <p class="font-medium text-foreground">{{ account.uin ?? '--' }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">UIN</p>
+                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ account.uin ?? '--' }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">创建时间</p>
-                <p class="font-medium text-foreground">{{ formatOptionalDateTime(account.createdAt) }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">创建时间</p>
+                <p class="truncate text-sm font-medium text-foreground">{{ formatOptionalDateTime(account.createdAt) }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">更新时间</p>
-                <p class="font-medium text-foreground">{{ formatOptionalDateTime(account.updatedAt || account.lastSyncedAt) }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">更新时间</p>
+                <p class="truncate text-sm font-medium text-foreground">{{ formatOptionalDateTime(account.updatedAt || account.lastSyncedAt) }}</p>
+              </div>
+              <div class="rounded-lg bg-muted/35 px-3 py-2 sm:col-span-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">账号编号</p>
+                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ account.recordId ?? '--' }}</p>
               </div>
             </div>
 
-            <div class="grid gap-3 text-sm text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">可用余额</p>
+            <div class="grid grid-cols-3 gap-2 text-muted-foreground">
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">可用</p>
                 <p
-                  class="font-medium"
+                  class="truncate text-sm font-medium tabular-nums"
                   :class="isLowAvailableBalance(account.balance) ? 'text-destructive' : 'text-foreground'"
                 >
                   {{ formatCurrency(account.balance) }}
                 </p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">现金余额</p>
-                <p class="font-medium text-foreground">{{ formatCurrency(account.cashAccountBalance) }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">现金</p>
+                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.cashAccountBalance) }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">赠送金余额</p>
-                <p class="font-medium text-foreground">{{ formatCurrency(account.presentAccountBalance) }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">赠送金</p>
+                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.presentAccountBalance) }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">冻结余额</p>
-                <p class="font-medium text-foreground">{{ formatCurrency(account.freezeAmount) }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">冻结</p>
+                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.freezeAmount) }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">欠费余额</p>
-                <p class="font-medium text-foreground">{{ formatCurrency(account.oweAmount) }}</p>
+              <div class="rounded-lg bg-muted/35 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-[0.08em]">欠费</p>
+                <p class="truncate text-sm font-medium text-foreground tabular-nums">{{ formatCurrency(account.oweAmount) }}</p>
               </div>
-              <div class="space-y-1">
-                <p class="text-xs uppercase tracking-wide">账号编号</p>
-                <p class="font-medium text-foreground">{{ account.recordId ?? '--' }}</p>
-              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 border-t border-border pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                class="h-8 w-full px-3 text-[13px]"
+                :disabled="accountsStore.loading"
+                @click="reloadAccounts"
+              >
+                <LoaderCircle v-if="accountsStore.loading" class="h-4 w-4 animate-spin" />
+                刷新
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                class="h-8 w-full px-3 text-[13px]"
+                @click="openEditDialog(account)"
+              >
+                编辑
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                class="h-8 w-full px-3 text-[13px]"
+                @click="handleQuickLogin(account)"
+              >
+                <LogIn class="h-4 w-4" />
+                快捷登录
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -223,7 +248,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { LoaderCircle } from 'lucide-vue-next';
+import { LoaderCircle, LogIn } from 'lucide-vue-next';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseInput from '@/components/BaseInput.vue';
 import EmptyState from '@/components/EmptyState.vue';
@@ -293,6 +318,10 @@ function openEditDialog(account: CloudAccount) {
   form.secretId = '';
   form.secretKey = '';
   form.status = typeof account.statusCode === 'number' ? String(account.statusCode) : '0';
+}
+
+function handleQuickLogin(account: CloudAccount) {
+  appStore.setNotice(`${account.name} 的快捷登录功能暂未接入`, 'info');
 }
 
 function handleDialogOpenChange(open: boolean) {

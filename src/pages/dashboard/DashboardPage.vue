@@ -14,15 +14,37 @@
         v-if="!showEmpty"
         class="flex flex-col gap-3 border-b border-border md:flex-row md:items-end md:justify-between"
       >
-        <div class="min-w-0 flex-1 overflow-x-auto py-0.5">
-          <TopTabSwitch
-            :tabs="accountScopeSwitchTabs"
-            :model-value="activeScope"
-            :collapse-inactive="false"
-            tone="default"
-            aria-label="账号范围切换"
-            @update:model-value="handleSelectScope"
-          />
+        <div class="relative min-w-0 flex-1 overflow-visible">
+          <div
+            class="min-w-0 -mt-1 overflow-x-auto whitespace-nowrap pt-1"
+          >
+            <nav class="relative flex min-w-max flex-nowrap items-center text-[14px]">
+              <button
+                v-for="tab in accountScopeTabs"
+                :key="tab.value"
+                :ref="(element) => setAccountTabRef(tab.value, element)"
+                type="button"
+                :title="tab.title"
+                :aria-pressed="activeScope === tab.value"
+                :class="[
+                  'group relative shrink-0 px-3 pb-[11px] text-muted-foreground transition-colors hover:text-foreground',
+                  'duration-180 ease-out',
+                  activeScope === tab.value ? 'font-semibold text-foreground' : '',
+                ]"
+                @click="handleSelectScope(tab.value)"
+              >
+                <span class="relative isolate inline-block">
+                  <span class="pointer-events-none absolute -inset-x-2 -inset-y-1 rounded-md transition-colors group-hover:[background:var(--interactive-hover,rgba(0,0,0,0.045))] group-focus-visible:[background:var(--interactive-hover,rgba(0,0,0,0.045))]" />
+                  <span class="relative z-10">{{ tab.label }}</span>
+                </span>
+              </button>
+              <span
+                aria-hidden="true"
+                class="pointer-events-none absolute bottom-0 left-0 h-0.5 rounded-full bg-foreground transition-[transform,width,opacity] duration-300 ease-out"
+                :style="accountIndicatorStyle"
+              />
+            </nav>
+          </div>
         </div>
 
         <div class="flex shrink-0 items-center justify-end pb-2">
@@ -214,6 +236,7 @@ import StatCard from '@/components/StatCard.vue';
 import StatusTag from '@/components/StatusTag.vue';
 import TopTabSwitch from '@/components/TopTabSwitch.vue';
 import TablePageTable from '@/components/table-page/TablePageTable.vue';
+import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -303,12 +326,13 @@ const accountScopeTabs = computed(() => [
     title: `${account.name} · ${account.region}`,
   })),
 ]);
-const accountScopeSwitchTabs = computed(() =>
-  accountScopeTabs.value.map((tab) => ({
-    id: String(tab.value),
-    label: tab.label,
-  })),
-);
+const {
+  indicatorStyle: accountIndicatorStyle,
+  setTabRef: setAccountTabRef,
+} = useSlidingTabIndicator({
+  activeKey: activeScope,
+  watchSource: computed(() => accountScopeTabs.value.map((tab) => `${tab.value}:${tab.label}`)),
+});
 const resourceSwitchTabs = computed(() => [
   { id: 'cvm', label: '云服务器', badge: formatCount(cvmRows.value.length) },
   { id: 'database', label: '数据库', badge: formatCount(databaseRows.value.length) },

@@ -5,6 +5,7 @@ import type {
   TencentAccountListItem,
   TencentAccountListRequest,
   TencentAccountListResponse,
+  UpdateAccountPayload,
 } from './types';
 
 function normalizeAccount(item: TencentAccountListItem): CloudAccount {
@@ -61,26 +62,22 @@ export async function createAccount(payload: CreateAccountPayload) {
   });
 }
 
-export async function deleteAccount(accountId: string) {
-  return request<void, { accountId: string }>({
-    path: '/api/accounts/delete',
+export async function updateAccount(payload: UpdateAccountPayload) {
+  return request<unknown, { Id: number; Name: string; Region: string; Status: number }>({
+    path: '/api/tencentaccount/update',
     method: 'POST',
-    body: { accountId },
+    body: {
+      Id: payload.id,
+      Name: payload.name,
+      Region: payload.region,
+      Status: payload.status,
+    },
   });
 }
 
-export async function testAccountConnection(accountId: string) {
-  return request<CloudAccount, { accountId: string }>({
-    path: '/api/accounts/test',
+export async function deleteAccount(recordId: number) {
+  return request<unknown>({
+    path: `/api/tencentaccount/del?id=${encodeURIComponent(String(recordId))}`,
     method: 'POST',
-    body: { accountId },
-  });
-}
-
-export async function syncAccountResources(accountId: string) {
-  return request<CloudAccount, { accountId: string }>({
-    path: '/api/accounts/sync',
-    method: 'POST',
-    body: { accountId },
   });
 }

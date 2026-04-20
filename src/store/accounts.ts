@@ -4,10 +4,9 @@ import {
   createAccount,
   deleteAccount,
   getAccounts,
-  syncAccountResources,
-  testAccountConnection,
+  updateAccount,
 } from '@/services/accounts';
-import type { CloudAccount, CreateAccountPayload } from '@/services/types';
+import type { CloudAccount, CreateAccountPayload, UpdateAccountPayload } from '@/services/types';
 import { readStorage, writeStorage } from '@/utils/storage';
 
 const ACCOUNTS_STORAGE_KEY = 'cloudscope_accounts';
@@ -25,8 +24,11 @@ export const useAccountsStore = defineStore('accounts', () => {
     loading.value = true;
     try {
       accountList.value = await getAccounts();
-      if (!currentAccountId.value && accountList.value[0]) {
-        currentAccountId.value = accountList.value[0].id;
+      if (
+        !currentAccountId.value ||
+        !accountList.value.some((account) => account.id === currentAccountId.value)
+      ) {
+        currentAccountId.value = accountList.value[0]?.id ?? '';
       }
       persist();
     } finally {
@@ -39,36 +41,19 @@ export const useAccountsStore = defineStore('accounts', () => {
     await hydrateFromService();
   }
 
-  async function removeAccount(accountId: string) {
-    await deleteAccount(accountId);
-    accountList.value = accountList.value.filter((account) => account.id !== accountId);
-    if (currentAccountId.value === accountId) {
-      currentAccountId.value = accountList.value[0]?.id ?? '';
-    }
-    persist();
+  async function editAccount(payload: UpdateAccountPayload) {
+    await updateAccount(payload);
+    await hydrateFromService();
+  }
+
+  async function removeAccount(recordId: number) {
+    await deleteAccount(recordId);
+    await hydrateFromService();
   }
 
   function selectAccount(accountId: string) {
     currentAccountId.value = accountId;
     persist();
-  }
-
-  async function testConnection(accountId: string) {
-    const updated = await testAccountConnection(accountId);
-    accountList.value = accountList.value.map((account) =>
-      account.id === accountId ? updated : account,
-    );
-    persist();
-    return updated;
-  }
-
-  async function syncAccount(accountId: string) {
-    const updated = await syncAccountResources(accountId);
-    accountList.value = accountList.value.map((account) =>
-      account.id === accountId ? updated : account,
-    );
-    persist();
-    return updated;
   }
 
   function restore() {
@@ -92,10 +77,9 @@ export const useAccountsStore = defineStore('accounts', () => {
     loading,
     hydrateFromService,
     addAccount,
+    editAccount,
     removeAccount,
     selectAccount,
-    testConnection,
-    syncAccount,
     restore,
   };
 });

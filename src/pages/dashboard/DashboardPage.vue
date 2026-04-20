@@ -145,7 +145,7 @@
               <Input
                 v-model="cvmSearchKeyword"
                 class="h-9 min-w-0 flex-1"
-                placeholder="搜索实例 ID、名称、IP、配置"
+                placeholder="搜索实例 ID、名称、IP、配置、可用区、备注"
               />
               <div class="w-[5.5rem] shrink-0 sm:w-36">
                 <BaseSelect
@@ -190,8 +190,8 @@
                 <template #cell-status="{ row }">
                   <StatusTag :status="String(row.status)" />
                 </template>
-                <template #cell-createdAt="{ row }">
-                  {{ formatDateTime(String(row.createdAt)) }}
+                <template #cell-expiredTime="{ row }">
+                  {{ row.expiredTime ? formatDateTime(String(row.expiredTime)) : '--' }}
                 </template>
                 <template #empty>
                   <EmptyState
@@ -243,14 +243,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { getAccountBalanceResponse } from '@/services/billing';
-import { getCvmList } from '@/services/cvm';
+import { getCloudDashboardList } from '@/services/cloud-dashboard';
 import { getDatabaseList } from '@/services/database';
 import { buildDashboardStats, translateAccountBalance } from '@/services/translators';
 import type { TableColumn } from '@/components/table-page/types';
 import type {
   AccountBalanceSummary,
+  CloudDashboardInstanceItem,
   CloudAccount,
-  CvmListItem,
   DashboardStats,
   DatabaseListItem,
   TencentAccountBalanceResponse,
@@ -259,12 +259,6 @@ import { useAccountsStore } from '@/store/accounts';
 import { formatCount, formatCurrencyFromCent } from '@/utils/format';
 import { formatDateTime } from '@/utils/time';
 
-type DashboardCvmRow = CvmListItem & {
-  rowId: string;
-  accountId: string;
-  account: string;
-};
-
 type DashboardDatabaseRow = DatabaseListItem & {
   rowId: string;
   accountId: string;
@@ -272,7 +266,6 @@ type DashboardDatabaseRow = DatabaseListItem & {
 };
 
 type DashboardAccountData = {
-  cvmList: DashboardCvmRow[];
   databaseList: DashboardDatabaseRow[];
   balance: TencentAccountBalanceResponse;
 };
@@ -281,7 +274,7 @@ const ALL_ACCOUNTS_SCOPE = 'all';
 const accountsStore = useAccountsStore();
 const stats = ref<DashboardStats | null>(null);
 const balanceSummary = ref<AccountBalanceSummary | null>(null);
-const cvmRows = ref<DashboardCvmRow[]>([]);
+const cvmRows = ref<CloudDashboardInstanceItem[]>([]);
 const databaseRows = ref<DashboardDatabaseRow[]>([]);
 const loading = ref(true);
 const refreshing = ref(false);
@@ -305,7 +298,10 @@ const cvmColumns: TableColumn[] = [
   { key: 'publicIp', label: '公网 IP' },
   { key: 'privateIp', label: '私网 IP' },
   { key: 'spec', label: '配置' },
-  { key: 'createdAt', label: '创建时间', tone: 'muted' },
+  { key: 'zone', label: '可用区', tone: 'muted' },
+  { key: 'chargeType', label: '计费模式', tone: 'muted' },
+  { key: 'expiredTime', label: '到期时间', tone: 'muted' },
+  { key: 'remark', label: '备注', tone: 'muted' },
 ];
 
 const databaseColumns: TableColumn[] = [
@@ -375,7 +371,7 @@ const filteredCvmRows = computed(() => {
   return cvmRows.value.filter((row) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [row.id, row.name, row.publicIp, row.privateIp, row.spec, row.account]
+      [row.id, row.name, row.publicIp, row.privateIp, row.spec, row.account, row.zone, row.chargeType, row.remark]
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
@@ -500,7 +496,7 @@ function getTargetAccounts() {
   return accountsStore.accountList.filter((account) => account.id === activeScope.value);
 }
 
-function attachAccountToCvmRows(account: CloudAccount, rows: CvmListItem[]): DashboardCvmRow[] {
+function attachAccountToDatabaseRows(account: CloudAccount, rows: DatabaseListItem[]): DashboardDatabaseRow[] {
   const accountLabel = `${account.name} · ${account.region}`;
 
   return rows.map((row) => ({
@@ -511,15 +507,16 @@ function attachAccountToCvmRows(account: CloudAccount, rows: CvmListItem[]): Das
   }));
 }
 
-function attachAccountToDatabaseRows(account: CloudAccount, rows: DatabaseListItem[]): DashboardDatabaseRow[] {
-  const accountLabel = `${account.name} · ${account.region}`;
+async function loadCloudDashboardRows(): Promise<CloudDashboardInstanceItem[]> {
+  const scopedAccount = isAllAccountsView.value
+    ? null
+    : accountsStore.accountList.find((account) => account.id === activeScope.value) ?? null;
+  const { list } = await getCloudDashboardList({
+    AccountUUID: scopedAccount?.uuid ?? scopedAccount?.id,
+    Full: true,
+  });
 
-  return rows.map((row) => ({
-    ...row,
-    rowId: `${account.id}:${row.id}`,
-    accountId: account.id,
-    account: accountLabel,
-  }));
+  return list;
 }
 
 function mergeAccountBalances(balances: TencentAccountBalanceResponse[]): AccountBalanceSummary | null {
@@ -579,14 +576,9 @@ function mergeAccountBalances(balances: TencentAccountBalanceResponse[]): Accoun
 }
 
 async function loadAccountDashboard(account: CloudAccount): Promise<DashboardAccountData> {
-  const [cvmList, databaseList, balance] = await Promise.all([
-    getCvmList(account.id),
-    getDatabaseList(account.id),
-    getAccountBalanceResponse(account.id),
-  ]);
+  const [databaseList, balance] = await Promise.all([getDatabaseList(account.id), getAccountBalanceResponse(account.id)]);
 
   return {
-    cvmList: attachAccountToCvmRows(account, cvmList),
     databaseList: attachAccountToDatabaseRows(account, databaseList),
     balance,
   };
@@ -612,7 +604,13 @@ async function loadData(isManual = false) {
   }
 
   try {
-    const results = await Promise.allSettled(targetAccounts.map((account) => loadAccountDashboard(account)));
+    const [cvmResult, results] = await Promise.all([
+      loadCloudDashboardRows().then((value) => ({ status: 'fulfilled' as const, value })).catch((reason) => ({
+        status: 'rejected' as const,
+        reason,
+      })),
+      Promise.allSettled(targetAccounts.map((account) => loadAccountDashboard(account))),
+    ]);
 
     if (requestId !== loadSequence) {
       return;
@@ -625,18 +623,20 @@ async function loadData(isManual = false) {
       result.status === 'rejected' ? [targetAccounts[index].name] : []
     ));
 
-    if (successful.length === 0) {
+    cvmRows.value = cvmResult.status === 'fulfilled' ? cvmResult.value : [];
+    databaseRows.value = successful.flatMap((item) => item.databaseList);
+    loadedAccountCount.value = successful.length;
+
+    if (cvmResult.status === 'rejected' && successful.length === 0) {
       clearDashboardData();
       errorMessage.value =
         failedAccounts.length > 0
-          ? `账号 ${failedAccounts.join('、')} 数据加载失败`
-          : '加载统计失败';
+          ? `云服务器列表与账号数据加载失败：${failedAccounts.join('、')}`
+          : cvmResult.reason instanceof Error
+            ? cvmResult.reason.message
+            : '加载统计失败';
       return;
     }
-
-    cvmRows.value = successful.flatMap((item) => item.cvmList);
-    databaseRows.value = successful.flatMap((item) => item.databaseList);
-    loadedAccountCount.value = successful.length;
 
     const balanceResponses = successful.map((item) => item.balance);
     balanceSummary.value =
@@ -648,8 +648,19 @@ async function loadData(isManual = false) {
     resetCvmFilters();
     resetDatabaseFilters();
 
+    const errorMessages: string[] = [];
+
+    if (cvmResult.status === 'rejected') {
+      errorMessages.push(
+        cvmResult.reason instanceof Error ? cvmResult.reason.message : '云服务器列表加载失败',
+      );
+    }
     if (failedAccounts.length > 0) {
-      errorMessage.value = `部分账号加载失败：${failedAccounts.join('、')}`;
+      errorMessages.push(`部分账号加载失败：${failedAccounts.join('、')}`);
+    }
+
+    if (errorMessages.length > 0) {
+      errorMessage.value = errorMessages.join('；');
     }
   } catch (error) {
     if (requestId !== loadSequence) {

@@ -2,9 +2,9 @@
   <section class="flex flex-1 flex-col gap-6">
     <header class="flex flex-col">
       <div class="flex min-w-0 flex-col border-b border-border">
-        <div class="flex min-w-0 justify-between gap-x-4 gap-y-3 pb-2 [flex-wrap:nowrap] items-center sm:items-end">
+        <div class="flex min-w-0 items-center justify-between gap-x-4 gap-y-3 pb-2 [flex-wrap:nowrap] sm:items-end">
           <div class="min-w-0 flex flex-1 items-baseline gap-x-2 overflow-hidden">
-            <h1 class="shrink-0 whitespace-nowrap leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
+            <h1 class="shrink-0 whitespace-nowrap text-[24px] leading-none font-semibold tracking-tight text-foreground sm:text-[28px] xl:text-[32px]">
               云账号管理
             </h1>
             <p class="hidden min-w-0 flex-1 truncate text-[18px] leading-none font-normal text-muted-foreground sm:inline sm:text-[20px]">
@@ -52,7 +52,12 @@
         <Card
           v-for="account in rows"
           :key="account.id"
-          class="border-border shadow-sm"
+          class="cursor-pointer border-border shadow-sm transition-colors hover:border-primary/30"
+          tabindex="0"
+          role="button"
+          @click="openEditDialog(account)"
+          @keydown.enter.prevent="openEditDialog(account)"
+          @keydown.space.prevent="openEditDialog(account)"
         >
           <CardHeader class="gap-3 p-4 pb-0">
             <div class="flex items-start justify-between gap-4">
@@ -117,16 +122,16 @@
       </div>
     </div>
 
-    <Dialog :open="createDialogOpen" @update:open="handleDialogOpenChange">
-      <DialogContent class="sm:max-w-xl" :show-close-button="!submitting">
+    <Dialog :open="dialogOpen" @update:open="handleDialogOpenChange">
+      <DialogContent class="sm:max-w-xl" :show-close-button="!submitting && !deleting">
         <DialogHeader class="pr-8">
-          <DialogTitle>添加云账号</DialogTitle>
+          <DialogTitle>{{ isEditMode ? '编辑云账号' : '添加云账号' }}</DialogTitle>
           <DialogDescription>
-            填写账号名称、地域和腾讯云访问凭据，提交后将调用真实接口创建账号。
+            {{ isEditMode ? '修改账号名称、地域和状态。删除操作需要二次确认。' : '填写账号名称、地域和腾讯云访问凭据，提交后将调用真实接口创建账号。' }}
           </DialogDescription>
         </DialogHeader>
 
-        <form class="grid gap-4" @submit.prevent="handleCreateAccount">
+        <form class="grid gap-4" @submit.prevent="handleSubmit">
           <BaseInput
             v-model="form.name"
             label="账号名称"
@@ -139,32 +144,71 @@
             placeholder="如：ap-guangzhou"
             autocomplete="off"
           />
-          <BaseInput
-            v-model="form.secretId"
-            label="SecretId"
-            placeholder="请输入腾讯云 SecretId"
-            autocomplete="off"
-          />
-          <BaseInput
-            v-model="form.secretKey"
-            label="SecretKey"
-            type="password"
-            placeholder="请输入腾讯云 SecretKey"
-            autocomplete="off"
-          />
+
+          <template v-if="isEditMode">
+            <BaseInput
+              v-model="form.status"
+              label="状态码"
+              type="number"
+              placeholder="请输入状态码"
+              autocomplete="off"
+            />
+          </template>
+          <template v-else>
+            <BaseInput
+              v-model="form.secretId"
+              label="SecretId"
+              placeholder="请输入腾讯云 SecretId"
+              autocomplete="off"
+            />
+            <BaseInput
+              v-model="form.secretKey"
+              label="SecretKey"
+              placeholder="请输入腾讯云 SecretKey"
+              autocomplete="off"
+            />
+          </template>
 
           <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
 
-          <DialogFooter class="pt-2">
-            <Button type="button" variant="outline" :disabled="submitting" @click="handleCancelCreate">
-              取消
-            </Button>
-            <BaseButton
-              label="确认添加"
-              type="submit"
-              :loading="submitting"
-              loading-text="添加中"
-            />
+          <DialogFooter class="pt-2 sm:justify-between">
+            <div class="flex min-h-9 items-center gap-2">
+              <template v-if="isEditMode">
+                <Button
+                  v-if="!deleteConfirming"
+                  type="button"
+                  variant="destructive"
+                  :disabled="submitting || deleting"
+                  @click="deleteConfirming = true"
+                >
+                  删除
+                </Button>
+                <template v-else>
+                  <span class="text-sm text-muted-foreground">确认删除该云账号？</span>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    :disabled="submitting || deleting"
+                    @click="handleDeleteAccount"
+                  >
+                    <LoaderCircle v-if="deleting" class="mr-1 h-4 w-4 animate-spin" />
+                    确认删除
+                  </Button>
+                </template>
+              </template>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+              <Button type="button" variant="outline" :disabled="submitting || deleting" @click="handleCancelDialog">
+                取消
+              </Button>
+              <BaseButton
+                :label="isEditMode ? '保存修改' : '确认添加'"
+                type="submit"
+                :loading="submitting"
+                :loading-text="isEditMode ? '保存中' : '添加中'"
+              />
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -190,23 +234,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import type { CloudAccount } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { useAppStore } from '@/store/app';
 import { formatDateTime } from '@/utils/time';
+
+type DialogMode = 'create' | 'edit';
 
 const accountsStore = useAccountsStore();
 const appStore = useAppStore();
 const tableError = ref('');
 const formError = ref('');
 const submitting = ref(false);
-const createDialogOpen = ref(false);
+const deleting = ref(false);
+const dialogOpen = ref(false);
+const dialogMode = ref<DialogMode>('create');
+const selectedAccount = ref<CloudAccount | null>(null);
+const deleteConfirming = ref(false);
 const form = reactive({
   name: '',
   region: 'ap-guangzhou',
   secretId: '',
   secretKey: '',
+  status: '0',
 });
 const rows = computed(() => accountsStore.accountList);
+const isEditMode = computed(() => dialogMode.value === 'edit');
 
 async function reloadAccounts() {
   tableError.value = '';
@@ -218,61 +271,146 @@ async function reloadAccounts() {
 }
 
 function openCreateDialog() {
+  dialogMode.value = 'create';
+  selectedAccount.value = null;
+  dialogOpen.value = true;
+  resetForm();
+}
+
+function openEditDialog(account: CloudAccount) {
+  dialogMode.value = 'edit';
+  selectedAccount.value = account;
+  dialogOpen.value = true;
   formError.value = '';
-  createDialogOpen.value = true;
+  deleteConfirming.value = false;
+  form.name = account.name;
+  form.region = account.region;
+  form.secretId = '';
+  form.secretKey = '';
+  form.status = typeof account.statusCode === 'number' ? String(account.statusCode) : '0';
 }
 
 function handleDialogOpenChange(open: boolean) {
-  if (submitting.value) {
+  if (submitting.value || deleting.value) {
     return;
   }
 
-  createDialogOpen.value = open;
+  dialogOpen.value = open;
   if (!open) {
-    resetForm();
+    resetDialogState();
   }
 }
 
-function handleCancelCreate() {
-  if (submitting.value) {
+function handleCancelDialog() {
+  if (submitting.value || deleting.value) {
     return;
   }
 
-  createDialogOpen.value = false;
-  resetForm();
+  dialogOpen.value = false;
+  resetDialogState();
 }
 
 function resetForm() {
   formError.value = '';
+  deleteConfirming.value = false;
   form.name = '';
   form.region = 'ap-guangzhou';
   form.secretId = '';
   form.secretKey = '';
+  form.status = '0';
 }
 
-async function handleCreateAccount() {
+function resetDialogState() {
+  selectedAccount.value = null;
+  dialogMode.value = 'create';
+  resetForm();
+}
+
+function parseStatus(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+async function handleSubmit() {
   formError.value = '';
 
-  if (!form.name.trim() || !form.region.trim() || !form.secretId.trim() || !form.secretKey.trim()) {
-    formError.value = '账号名称、地域、SecretId 和 SecretKey 不能为空';
+  if (!form.name.trim() || !form.region.trim()) {
+    formError.value = '账号名称和地域不能为空';
+    return;
+  }
+
+  if (!isEditMode.value && (!form.secretId.trim() || !form.secretKey.trim())) {
+    formError.value = 'SecretId 和 SecretKey 不能为空';
     return;
   }
 
   submitting.value = true;
   try {
-    await accountsStore.addAccount({
-      name: form.name.trim(),
-      region: form.region.trim(),
-      secretId: form.secretId.trim(),
-      secretKey: form.secretKey.trim(),
-    });
-    appStore.setNotice('云账号已添加', 'info');
-    createDialogOpen.value = false;
-    resetForm();
+    if (isEditMode.value) {
+      const account = selectedAccount.value;
+      const status = parseStatus(form.status);
+
+      if (typeof account?.recordId !== 'number') {
+        throw new Error('当前账号缺少可编辑的 Id');
+      }
+      if (status === null) {
+        throw new Error('状态码必须为整数');
+      }
+
+      await accountsStore.editAccount({
+        id: account.recordId,
+        name: form.name.trim(),
+        region: form.region.trim(),
+        status,
+      });
+      appStore.setNotice('云账号已更新', 'info');
+    } else {
+      await accountsStore.addAccount({
+        name: form.name.trim(),
+        region: form.region.trim(),
+        secretId: form.secretId.trim(),
+        secretKey: form.secretKey.trim(),
+      });
+      appStore.setNotice('云账号已添加', 'info');
+    }
+
+    dialogOpen.value = false;
+    resetDialogState();
   } catch (error) {
-    formError.value = error instanceof Error ? error.message : '添加云账号失败';
+    formError.value = error instanceof Error ? error.message : isEditMode.value ? '更新云账号失败' : '添加云账号失败';
   } finally {
     submitting.value = false;
+  }
+}
+
+async function handleDeleteAccount() {
+  formError.value = '';
+
+  const account = selectedAccount.value;
+  if (typeof account?.recordId !== 'number') {
+    formError.value = '当前账号缺少可删除的 Id';
+    return;
+  }
+
+  deleting.value = true;
+  try {
+    await accountsStore.removeAccount(account.recordId);
+    appStore.setNotice('云账号已删除', 'info');
+    dialogOpen.value = false;
+    resetDialogState();
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : '删除云账号失败';
+  } finally {
+    deleting.value = false;
   }
 }
 

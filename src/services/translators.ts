@@ -1,6 +1,10 @@
 import { formatCurrencyFromCent, formatSpec, formatStorage } from '@/utils/format';
 import type {
   AccountBalanceSummary,
+  CloudDashboardListResult,
+  CloudDashboardInstanceItem,
+  CloudInstanceListResponse,
+  CloudInstanceRow,
   CvmListItem,
   DashboardStats,
   DatabaseListItem,
@@ -34,6 +38,66 @@ export function translateCvmList(response: TencentCvmResponse): CvmListItem[] {
   }));
 }
 
+function formatCloudDashboardSpec(instance: CloudInstanceRow): string {
+  const segments: string[] = [];
+
+  if (instance.CPU !== undefined || instance.Memory !== undefined) {
+    const cpu = instance.CPU ?? '--';
+    const memory = instance.Memory ?? '--';
+    segments.push(`${cpu} 核 / ${memory} GB`);
+  }
+
+  if (instance.DiskType || instance.DiskSize) {
+    segments.push([instance.DiskType, instance.DiskSize].filter(Boolean).join(' / '));
+  }
+
+  if (instance.InternetMaxBandwidthOut !== undefined) {
+    segments.push(`${instance.InternetMaxBandwidthOut} Mbps`);
+  }
+
+  return segments.join(' · ') || '--';
+}
+
+function normalizeCloudDashboardStatus(status?: string): CloudDashboardInstanceItem['status'] {
+  if (!status) {
+    return '未知';
+  }
+
+  return CVM_STATUS_MAP[status] ?? status;
+}
+
+export function translateCloudDashboardList(
+  response: CloudInstanceListResponse,
+): CloudDashboardListResult {
+  const list = (response.List ?? []).map((instance) => {
+    const accountId = instance.AccountUuid?.trim() || String(instance.AccountId ?? '').trim();
+    const id = instance.InstanceID?.trim() || '--';
+    const accountName = instance.AccountName?.trim();
+
+    return {
+      rowId: `${accountId || 'unknown'}:${id}`,
+      accountId,
+      account: accountName || accountId || '--',
+      id,
+      name: instance.InstanceName?.trim() || '--',
+      status: normalizeCloudDashboardStatus(instance.InstanceState?.trim()),
+      statusCode: instance.InstanceState?.trim() || 'UNKNOWN',
+      publicIp: instance.PublicIpAddresses?.trim() || '--',
+      privateIp: instance.PrivateIpAddresses?.trim() || '--',
+      spec: formatCloudDashboardSpec(instance),
+      zone: instance.Zone?.trim() || '--',
+      chargeType: instance.InstanceChargeType?.trim() || '--',
+      expiredTime: instance.ExpiredTime?.trim() || '',
+      remark: instance.Remark?.trim() || '--',
+    };
+  });
+
+  return {
+    list,
+    total: response.Total ?? list.length,
+  };
+}
+
 export function translateDatabaseList(response: TencentDbResponse): DatabaseListItem[] {
   return response.Response.DBInstanceSet.map((instance) => ({
     id: instance.InstanceId,
@@ -48,8 +112,8 @@ export function translateDatabaseList(response: TencentDbResponse): DatabaseList
 }
 
 export function buildDashboardStats(
-  cvmList: CvmListItem[],
-  databaseList: DatabaseListItem[],
+  cvmList: Array<{ statusCode: string }>,
+  databaseList: Array<{ statusCode: string }>,
 ): DashboardStats {
   const runningCount =
     cvmList.filter((item) => item.statusCode === 'RUNNING').length +

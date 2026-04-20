@@ -36,6 +36,13 @@ export interface CreateAccountPayload {
   secretKey: string;
 }
 
+export interface UpdateAccountPayload {
+  id: number;
+  name: string;
+  region: string;
+  status: number;
+}
+
 export interface TencentAccountListRequest {
   Full: boolean;
   PageNum: number;
@@ -61,6 +68,55 @@ export interface TencentAccountListItem {
 export interface TencentAccountListResponse {
   List: TencentAccountListItem[];
   Total: number;
+}
+
+export interface CloudInstanceListReq {
+  AccountUUID?: string;
+  Full?: boolean;
+  Keyword?: CloudInstanceKeyword;
+  PageNum?: number;
+  PageSize?: number;
+}
+
+export interface CloudInstanceKeyword {
+  CloudConfiguration?: CloudConfiguration;
+  InstanceID?: string;
+  InstanceName?: string;
+  PrivateIpAddresses?: string;
+  PublicIpAddresses?: string;
+}
+
+export interface CloudConfiguration {
+  CPU?: number;
+  DiskSize?: string;
+  DiskType?: string;
+  InternetMaxBandwidthOut?: number;
+  Memory?: number;
+}
+
+export interface CloudInstanceListResponse {
+  List?: CloudInstanceRow[];
+  Total?: number;
+}
+
+export interface CloudInstanceRow {
+  AccountId?: number;
+  AccountName?: string;
+  AccountUuid?: string;
+  CPU?: number;
+  DiskSize?: string;
+  DiskType?: string;
+  ExpiredTime?: string;
+  InstanceChargeType?: string;
+  InstanceID?: string;
+  InstanceName?: string;
+  InstanceState?: string;
+  InternetMaxBandwidthOut?: number;
+  Memory?: number;
+  PrivateIpAddresses?: string;
+  PublicIpAddresses?: string;
+  Remark?: string;
+  Zone?: string;
 }
 
 export interface TencentCvmInstance {
@@ -136,6 +192,28 @@ export interface CvmListItem {
   privateIp: string;
   spec: string;
   createdAt: string;
+}
+
+export interface CloudDashboardInstanceItem {
+  rowId: string;
+  accountId: string;
+  account: string;
+  id: string;
+  name: string;
+  status: string;
+  statusCode: string;
+  publicIp: string;
+  privateIp: string;
+  spec: string;
+  zone: string;
+  chargeType: string;
+  expiredTime: string;
+  remark: string;
+}
+
+export interface CloudDashboardListResult {
+  list: CloudDashboardInstanceItem[];
+  total: number;
 }
 
 export interface DatabaseListItem {

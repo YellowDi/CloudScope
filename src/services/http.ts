@@ -1,5 +1,5 @@
 import type { RequestOptions } from './types';
-import { ApiError } from '@/lib/api-errors';
+import { ApiError, extractApiErrorText } from '@/lib/api-errors';
 import { TOKEN_STORAGE_KEY } from '@/store/auth';
 
 const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
@@ -29,21 +29,6 @@ function getErrorField(payload: unknown, key: string) {
 
   const value = (payload as Record<string, unknown>)[key];
   return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
-}
-
-function getErrorMessage(payload: unknown, fallback: string) {
-  if (typeof payload === 'string' && payload.trim()) {
-    return payload.trim();
-  }
-
-  for (const key of ['message', 'msg', 'error', 'detail', 'title']) {
-    const value = getErrorField(payload, key);
-    if (value?.trim()) {
-      return value.trim();
-    }
-  }
-
-  return fallback;
 }
 
 async function parseResponse(response: Response) {
@@ -86,7 +71,7 @@ export async function request<TResponse, TBody = unknown>(
     const payload = await parseResponse(response);
 
     if (!response.ok) {
-      throw new ApiError(getErrorMessage(payload, `请求失败 (${response.status})`), {
+      throw new ApiError(extractApiErrorText(payload) ?? `请求失败 (${response.status})`, {
         status: response.status,
         code: getErrorField(payload, 'code'),
         requestId: getErrorField(payload, 'requestId'),

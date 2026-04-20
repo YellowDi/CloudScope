@@ -6,9 +6,8 @@ export type NoticeType = 'info' | 'error';
 export const useAppStore = defineStore('app', () => {
   function setNotice(message: string, type: NoticeType = 'info') {
     if (type === 'error') {
-      toast.error('操作失败', {
-        description: message,
-      });
+      const normalizedMessage = message.trim();
+      toast.error(normalizedMessage || '操作失败');
       return;
     }
 

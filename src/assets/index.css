@@ -411,6 +411,17 @@
     display: none;
   }
 
+  [data-page-header-tabs-scroll] {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  [data-page-header-tabs-scroll]::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
   .dark [data-slot="input"]:not([disabled]):not([aria-invalid="true"]):hover:not(:focus-visible),
   .dark [data-slot="select-trigger"]:not([data-disabled]):hover:not(:focus-visible),
   .dark input:not([type="hidden"]):not(:disabled):not([aria-invalid="true"]):hover:not(:focus-visible),

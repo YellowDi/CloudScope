@@ -1,18 +1,26 @@
 <template>
   <section class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
-    <header class="flex flex-col gap-4">
+    <header
+      class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      :style="{ top: 'var(--table-page-sticky-top)' }"
+    >
       <div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-2">
         <h1 class="leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
           云账号管理
         </h1>
         <p class="max-w-3xl text-[18px] leading-none font-normal text-muted-foreground sm:text-[20px]">
-          展示后端已添加的腾讯云账号列表，并直接显示账号余额与基础信息。
+          统一管理云资源相关的账号与配套事务。
         </p>
       </div>
 
-      <div class="flex flex-col gap-3 border-b border-border md:flex-row md:items-end md:justify-between">
-        <div class="relative min-w-0 flex-1 overflow-visible">
-          <div class="min-w-0 -mt-1 overflow-x-auto whitespace-nowrap pt-1">
+      <div class="flex min-w-0 items-end gap-2 border-b border-border">
+        <div class="relative min-w-0 flex-1 overflow-visible pt-1">
+          <div
+            ref="accountCategoryTabsScrollViewportRef"
+            data-page-header-tabs-scroll
+            class="min-w-0 -mt-1 overflow-x-auto whitespace-nowrap pt-1"
+            @scroll="handleAccountCategoryTabsScroll"
+          >
             <nav class="relative flex min-w-max flex-nowrap items-center text-[14px]">
               <button
                 v-for="tab in accountCategoryTabs"
@@ -39,10 +47,19 @@
               />
             </nav>
           </div>
+
+          <div
+            v-if="accountCategoryTabsOverflowLeft"
+            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background via-background/88 to-transparent"
+          />
+          <div
+            v-if="accountCategoryTabsOverflowRight"
+            class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background via-background/92 to-transparent"
+          />
         </div>
 
-        <div class="flex shrink-0 items-center justify-end pb-2 gap-2">
-          <div class="ml-auto flex min-w-0 shrink-0 justify-end gap-2">
+        <div class="ml-auto flex shrink-0 items-center justify-end pb-2 gap-1 sm:gap-2">
+          <div class="ml-auto flex min-w-0 shrink-0 justify-end gap-1 sm:gap-2">
             <Button
               variant="outline"
               class="h-8 gap-1 px-3 text-[14px]"
@@ -333,6 +350,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { TooltipWrap } from '@/components/ui/tooltip';
+import { useHorizontalOverflowMask } from '@/composables/useHorizontalOverflowMask';
 import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
 import type { CloudAccount } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
@@ -384,6 +402,14 @@ const {
   setTabRef: setAccountCategoryTabRef,
 } = useSlidingTabIndicator({
   activeKey: activeCategoryTab,
+  watchSource: computed(() => accountCategoryTabs.map((tab) => `${tab.value}:${tab.label}`)),
+});
+const {
+  scrollViewportRef: accountCategoryTabsScrollViewportRef,
+  overflowLeft: accountCategoryTabsOverflowLeft,
+  overflowRight: accountCategoryTabsOverflowRight,
+  handleScroll: handleAccountCategoryTabsScroll,
+} = useHorizontalOverflowMask({
   watchSource: computed(() => accountCategoryTabs.map((tab) => `${tab.value}:${tab.label}`)),
 });
 

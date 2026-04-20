@@ -101,19 +101,19 @@
           <Card
             v-for="account in rows"
             :key="account.id"
-            class="mb-4 block break-inside-avoid overflow-hidden rounded-[20px] border border-black/5 bg-[#faf9f7] shadow-none transition-none"
+            class="mb-4 block break-inside-avoid overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 shadow-none transition-none dark:border-zinc-800 dark:bg-zinc-900"
           >
-            <div class="rounded-[16px] bg-background px-4 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_5px_10px_rgba(17,24,39,0.05)]">
+            <div class="rounded-[16px] bg-white px-4 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_5px_10px_rgba(17,24,39,0.05)] dark:bg-zinc-950 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_18px_-14px_rgba(0,0,0,0.55)]">
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
                   <CardTitle class="truncate text-[18px] tracking-tight">{{ account.name }}</CardTitle>
                 </div>
-                <div class="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                <div class="shrink-0 rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-600 dark:bg-zinc-800 dark:text-zinc-400">
                   {{ formatStatus(account.statusCode, account.status) }}
                 </div>
               </div>
 
-              <div class="mt-4 rounded-[16px] bg-muted/65 px-4 py-3.5">
+              <div class="mt-4 rounded-[16px] bg-stone-100 px-4 py-3.5 dark:bg-zinc-900">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
                     <p class="text-xs text-muted-foreground">可用余额</p>
@@ -153,7 +153,7 @@
                         <div
                           v-for="field in getAccountMetaFields(account)"
                           :key="field.label"
-                          class="rounded-xl bg-muted/55 px-3 py-2.5"
+                          class="rounded-xl bg-stone-100 px-3 py-2.5 dark:bg-zinc-900"
                         >
                           <p class="text-[11px] text-muted-foreground">{{ field.label }}</p>
                           <p class="mt-1 truncate text-sm font-medium text-foreground" :class="field.numeric ? 'tabular-nums' : undefined">
@@ -169,7 +169,7 @@
                         <div
                           v-for="field in getAccountBalanceFields(account)"
                           :key="field.label"
-                          class="rounded-xl bg-muted/55 px-3 py-2.5"
+                          class="rounded-xl bg-stone-100 px-3 py-2.5 dark:bg-zinc-900"
                         >
                           <p class="text-[11px] text-muted-foreground">{{ field.label }}</p>
                           <p

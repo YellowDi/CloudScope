@@ -1,13 +1,15 @@
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <Button variant="outline" class="whitespace-nowrap px-2 md:px-4">
-        <CircleUserRound class="h-4 w-4 shrink-0" />
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-8 gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs md:px-3"
+      >
+        <CircleUserRound class="h-3.5 w-3.5 shrink-0" />
         <span class="sr-only">打开用户菜单</span>
-        <span class="hidden items-center gap-2 whitespace-nowrap md:inline-flex">
-          <span class="text-sm font-medium">{{ user?.name ?? '访客' }}</span>
-          <span class="text-xs text-muted-foreground">/</span>
-          <span class="text-xs text-muted-foreground">{{ user?.role ?? '未登录' }}</span>
+        <span class="hidden items-center whitespace-nowrap md:inline-flex">
+          <span class="font-medium">{{ user?.name ?? '访客' }}</span>
         </span>
       </Button>
     </DropdownMenuTrigger>

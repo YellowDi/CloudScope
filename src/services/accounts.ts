@@ -159,8 +159,11 @@ export async function updateAccount(payload: UpdateAccountPayload) {
 }
 
 export async function deleteAccount(recordId: number) {
-  return request<unknown>({
-    path: `/api/tencentaccount/del?id=${encodeURIComponent(String(recordId))}`,
+  return request<unknown, { Id: number }>({
+    path: '/api/tencentaccount/del',
     method: 'POST',
+    body: {
+      Id: recordId,
+    },
   });
 }

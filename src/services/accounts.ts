@@ -6,6 +6,32 @@ import type {
   UpdateAccountPayload,
 } from './types';
 
+const ACCOUNT_STATUS_LABELS: Record<number, string> = {
+  1: '正常',
+  2: '异常',
+};
+
+export const ACCOUNT_STATUS_OPTIONS = Object.entries(ACCOUNT_STATUS_LABELS).map(([value, label]) => ({
+  label,
+  value,
+}));
+
+export function isValidAccountStatus(statusCode?: number): statusCode is 1 | 2 {
+  return statusCode === 1 || statusCode === 2;
+}
+
+export function formatAccountStatus(statusCode?: number, fallback?: string) {
+  if (isValidAccountStatus(statusCode)) {
+    return ACCOUNT_STATUS_LABELS[statusCode];
+  }
+
+  if (typeof statusCode === 'number') {
+    return `未知状态(${statusCode})`;
+  }
+
+  return fallback || '未知';
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -101,7 +127,7 @@ function normalizeAccount(item: unknown, index: number): CloudAccount {
     id: fallbackId,
     name: name || '未命名账号',
     region: region || '--',
-    status: statusCode === undefined ? '未知' : `状态码 ${statusCode}`,
+    status: formatAccountStatus(statusCode),
     statusCode,
     lastSyncedAt: updatedAt || createdAt,
     createdAt,

@@ -9,7 +9,7 @@
             资源总览
         </h1>
         <p class="max-w-3xl text-[18px] leading-none font-normal text-muted-foreground sm:text-[20px]">
-          支持查看全部账号聚合数据，也可切换到单个账号查看 CVM 与 TencentDB 资源状态。
+          支持查看全部账号聚合数据，也可切换到单个账号查看 CVM、TencentDB 与域名资源状态。
         </p>
       </div>
 
@@ -90,9 +90,10 @@
         <AlertDescription>{{ errorMessage }}</AlertDescription>
       </Alert>
 
-      <div class="grid grid-cols-2 gap-2 md:gap-2.5 xl:grid-cols-5">
+      <div class="grid grid-cols-2 gap-2 md:gap-2.5 xl:grid-cols-6">
         <StatCard label="CVM 总数" :value="formatCount(stats.cvmTotal)" meta="腾讯云云服务器实例" :loading="summaryCardsLoading" />
         <StatCard label="数据库总数" :value="formatCount(stats.databaseTotal)" meta="TencentDB 实例" :loading="summaryCardsLoading" />
+        <StatCard label="域名总数" :value="formatCount(stats.domainTotal)" meta="已添加域名看板实例" :loading="summaryCardsLoading" />
         <StatCard label="运行中实例数" :value="formatCount(stats.runningCount)" meta="跨资源聚合统计" :loading="summaryCardsLoading" />
         <StatCard label="异常实例数" :value="formatCount(stats.abnormalCount)" meta="所有非运行态实例" :loading="summaryCardsLoading" />
         <StatCard label="即将到期实例" :value="formatCount(stats.expiringSoonCount)" meta="含已过期与 30 天内到期实例" :loading="summaryCardsLoading" />
@@ -125,7 +126,7 @@
               <Button variant="outline" class="h-9 shrink-0 px-3 text-sm" @click="resetCvmFilters">清空筛选</Button>
             </div>
 
-            <div v-else class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <div v-else-if="activeResourceTab === 'database'" class="flex min-w-0 items-center gap-1.5 sm:gap-2">
               <Input
                 v-model="databaseSearchKeyword"
                 class="h-9 min-w-0 flex-1"
@@ -144,6 +145,27 @@
                 />
               </div>
               <Button variant="outline" class="h-9 shrink-0 px-3 text-sm" @click="resetDatabaseFilters">清空筛选</Button>
+            </div>
+
+            <div v-else class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+              <Input
+                v-model="domainSearchKeyword"
+                class="h-9 min-w-0 flex-1"
+                placeholder="搜索域名、域名 ID、账号、后缀"
+              />
+              <div class="w-[6.5rem] shrink-0 sm:w-36">
+                <BaseSelect
+                  v-model="domainStatusFilter"
+                  :options="domainStatusOptions"
+                />
+              </div>
+              <div class="w-[6.5rem] shrink-0 sm:w-32">
+                <BaseSelect
+                  v-model="domainAutoRenewFilter"
+                  :options="domainAutoRenewOptions"
+                />
+              </div>
+              <Button variant="outline" class="h-9 shrink-0 px-3 text-sm" @click="resetDomainFilters">清空筛选</Button>
             </div>
           </div>
 
@@ -298,6 +320,86 @@
               </div>
             </div>
           </TabsContent>
+
+          <TabsContent value="domain" class="mt-0 min-h-0 flex-1">
+            <div class="flex min-h-0 flex-1 flex-col">
+              <TablePageTable
+                :columns="visibleDomainColumns"
+                :rows="paginatedDomainRows"
+                row-key="rowId"
+                :loading="domainLoading"
+                :show-index="true"
+                :sticky-header="true"
+                :edge-gutter="true"
+                :list-level-table="false"
+                :summary="domainTableSummary"
+              >
+                <template #cell-buyStatus="{ row }">
+                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
+                    {{ row.buyStatus }}
+                  </span>
+                </template>
+                <template #cell-autoRenew="{ row }">
+                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
+                    {{ row.autoRenew }}
+                  </span>
+                </template>
+                <template #cell-expirationDate="{ row }">
+                  <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
+                    <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
+                      {{ getExpirationInfo(row).dateText }}
+                    </p>
+                    <p
+                      v-if="getExpirationInfo(row).relativeText"
+                      class="shrink-0 text-xs leading-4"
+                      :class="getExpirationInfo(row).textClass"
+                    >
+                      {{ getExpirationInfo(row).relativeText }}
+                    </p>
+                  </div>
+                </template>
+                <template #cell-creationDate="{ row }">
+                  <span>{{ formatDateTimeWithMinutes(String(row.creationDate)) }}</span>
+                </template>
+                <template #empty>
+                  <EmptyState
+                    :title="hasDomainFilters ? '没有匹配的域名' : '暂无域名'"
+                    :description="hasDomainFilters ? '请调整搜索关键词、购买状态或自动续费筛选条件。' : domainEmptyDescription"
+                  />
+                </template>
+              </TablePageTable>
+
+              <div v-if="domainPageCount > 1" class="min-w-0 shrink-0 pt-3">
+                <Pagination
+                  v-model:page="domainPage"
+                  :items-per-page="DASHBOARD_PAGE_SIZE"
+                  :total="filteredDomainRows.length"
+                  :sibling-count="1"
+                  class="w-full justify-end"
+                >
+                  <PaginationContent v-slot="{ items }" class="justify-end">
+                    <PaginationFirst />
+                    <PaginationPrevious />
+                    <template
+                      v-for="(item, index) in items"
+                      :key="`${item.type}-${item.type === 'page' ? item.value : index}`"
+                    >
+                      <PaginationItem
+                        v-if="item.type === 'page'"
+                        :value="item.value"
+                        :is-active="item.value === domainPage"
+                      >
+                        {{ item.value }}
+                      </PaginationItem>
+                      <PaginationEllipsis v-else />
+                    </template>
+                    <PaginationNext />
+                    <PaginationLast />
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </template>
@@ -332,11 +434,13 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { getCloudDashboardList } from '@/services/cloud-dashboard';
 import { getDatabaseDashboardList } from '@/services/database-dashboard';
+import { getDomainDashboardList } from '@/services/domain-dashboard';
 import { buildDashboardStats } from '@/services/translators';
 import type { TableColumn } from '@/components/table-page/types';
 import type {
   CloudDashboardInstanceItem,
   DashboardStats,
+  DomainDashboardInstanceItem,
   DatabaseDashboardInstanceItem,
 } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
@@ -367,22 +471,29 @@ const DEFAULT_EXPIRATION_INFO: ExpirationInfo = {
 const accountsStore = useAccountsStore();
 const cvmRows = ref<CloudDashboardInstanceItem[]>([]);
 const databaseRows = ref<DatabaseDashboardInstanceItem[]>([]);
+const domainRows = ref<DomainDashboardInstanceItem[]>([]);
 const cvmLoading = ref(true);
 const databaseLoading = ref(true);
+const domainLoading = ref(true);
 const summaryCardsLoading = ref(true);
 const refreshing = ref(false);
 const cvmErrorMessage = ref('');
 const databaseErrorMessage = ref('');
+const domainErrorMessage = ref('');
 const showEmpty = computed(() => !accountsStore.loading && accountsStore.accountList.length === 0);
 const activeScope = ref(ALL_ACCOUNTS_SCOPE);
-const activeResourceTab = ref<'cvm' | 'database'>('cvm');
+const activeResourceTab = ref<'cvm' | 'database' | 'domain'>('cvm');
 const cvmSearchKeyword = ref('');
 const cvmStatusFilter = ref('all');
 const databaseSearchKeyword = ref('');
 const databaseStatusFilter = ref('all');
 const databaseTypeFilter = ref('all');
+const domainSearchKeyword = ref('');
+const domainStatusFilter = ref('all');
+const domainAutoRenewFilter = ref('all');
 const cvmPage = ref(1);
 const databasePage = ref(1);
+const domainPage = ref(1);
 
 const cvmColumns: TableColumn[] = [
   { key: 'account', label: '云账号', filterType: 'text', tone: 'muted' },
@@ -408,6 +519,19 @@ const databaseColumns: TableColumn[] = [
   { key: 'privateIp', label: '私网 IP' },
   { key: 'storage', label: '存储' },
   { key: 'zone', label: '可用区', tone: 'muted' },
+];
+
+const domainColumns: TableColumn[] = [
+  { key: 'account', label: '云账号', filterType: 'text', tone: 'muted' },
+  { key: 'domainName', label: '域名' },
+  { key: 'domainId', label: '域名 ID', tone: 'muted' },
+  { key: 'expirationDate', label: '到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
+  { key: 'buyStatus', label: '购买状态' },
+  { key: 'autoRenew', label: '自动续费' },
+  { key: 'tld', label: '后缀' },
+  { key: 'codeTld', label: '编码后后缀', tone: 'muted' },
+  { key: 'isPremium', label: '溢价域名' },
+  { key: 'creationDate', label: '注册时间', tone: 'muted' },
 ];
 
 const isAllAccountsView = computed(() => activeScope.value === ALL_ACCOUNTS_SCOPE);
@@ -437,10 +561,11 @@ const {
 const resourceSwitchTabs = computed(() => [
   { id: 'cvm', label: '云服务器', badge: formatCount(cvmRows.value.length) },
   { id: 'database', label: '数据库', badge: formatCount(databaseRows.value.length) },
+  { id: 'domain', label: '域名', badge: formatCount(domainRows.value.length) },
 ]);
-const stats = computed<DashboardStats>(() => buildDashboardStats(cvmRows.value, databaseRows.value));
+const stats = computed<DashboardStats>(() => buildDashboardStats(cvmRows.value, databaseRows.value, domainRows.value));
 const errorMessage = computed(() =>
-  [cvmErrorMessage.value, databaseErrorMessage.value]
+  [cvmErrorMessage.value, databaseErrorMessage.value, domainErrorMessage.value]
     .filter(Boolean)
     .join('；'),
 );
@@ -450,6 +575,10 @@ const visibleCvmColumns = computed<TableColumn[]>(() =>
 
 const visibleDatabaseColumns = computed<TableColumn[]>(() =>
   isAllAccountsView.value ? databaseColumns : databaseColumns.filter((column) => column.key !== 'account'),
+);
+
+const visibleDomainColumns = computed<TableColumn[]>(() =>
+  isAllAccountsView.value ? domainColumns : domainColumns.filter((column) => column.key !== 'account'),
 );
 
 const cvmStatusOptions = [
@@ -478,6 +607,25 @@ const databaseTypeOptions = computed(() => {
   ];
 });
 
+const domainStatusOptions = computed(() => {
+  const values = Array.from(new Set(domainRows.value.map((item) => item.buyStatus).filter(Boolean)));
+  return [
+    { label: '全部状态', value: 'all' },
+    ...values.map((value) => ({ label: value, value })),
+  ];
+});
+
+const domainAutoRenewOptions = computed(() => {
+  const entries = Array.from(new Map(
+    domainRows.value.map((item) => [item.autoRenewCode, item.autoRenew] as const).filter(([value]) => value),
+  ).entries());
+
+  return [
+    { label: '全部续费', value: 'all' },
+    ...entries.map(([value, label]) => ({ label, value })),
+  ];
+});
+
 const cvmDisplayRows = computed(() =>
   cvmRows.value.map((row) => ({
     ...row,
@@ -489,6 +637,13 @@ const databaseDisplayRows = computed(() =>
   databaseRows.value.map((row) => ({
     ...row,
     expirationInfo: buildExpirationInfo(row.chargeType, row.expiredTime),
+  })),
+);
+
+const domainDisplayRows = computed(() =>
+  domainRows.value.map((row) => ({
+    ...row,
+    expirationInfo: buildExpirationInfo('', row.expirationDate),
   })),
 );
 
@@ -553,8 +708,41 @@ const filteredDatabaseRows = computed(() => {
   });
 });
 
+const filteredDomainRows = computed(() => {
+  const keyword = domainSearchKeyword.value.trim().toLowerCase();
+
+  return domainDisplayRows.value.filter((row) => {
+    const matchesKeyword =
+      keyword.length === 0 ||
+      [
+        row.domainName,
+        row.domainId,
+        row.account,
+        row.tld,
+        row.codeTld,
+        row.buyStatus,
+        row.autoRenew,
+        row.isPremium,
+        row.creationDate,
+        row.expirationDate,
+        row.expirationInfo.dateText,
+        row.expirationInfo.relativeText,
+      ]
+        .some((value) => value.toLowerCase().includes(keyword));
+
+    const matchesStatus =
+      domainStatusFilter.value === 'all' || row.buyStatus === domainStatusFilter.value;
+
+    const matchesAutoRenew =
+      domainAutoRenewFilter.value === 'all' || row.autoRenewCode === domainAutoRenewFilter.value;
+
+    return matchesKeyword && matchesStatus && matchesAutoRenew;
+  });
+});
+
 const cvmPageCount = computed(() => Math.max(1, Math.ceil(filteredCvmRows.value.length / DASHBOARD_PAGE_SIZE)));
 const databasePageCount = computed(() => Math.max(1, Math.ceil(filteredDatabaseRows.value.length / DASHBOARD_PAGE_SIZE)));
+const domainPageCount = computed(() => Math.max(1, Math.ceil(filteredDomainRows.value.length / DASHBOARD_PAGE_SIZE)));
 
 const paginatedCvmRows = computed(() => {
   const start = (cvmPage.value - 1) * DASHBOARD_PAGE_SIZE;
@@ -566,6 +754,11 @@ const paginatedDatabaseRows = computed(() => {
   return filteredDatabaseRows.value.slice(start, start + DASHBOARD_PAGE_SIZE);
 });
 
+const paginatedDomainRows = computed(() => {
+  const start = (domainPage.value - 1) * DASHBOARD_PAGE_SIZE;
+  return filteredDomainRows.value.slice(start, start + DASHBOARD_PAGE_SIZE);
+});
+
 const hasCvmFilters = computed(
   () => cvmSearchKeyword.value.trim().length > 0 || cvmStatusFilter.value !== 'all',
 );
@@ -575,6 +768,13 @@ const hasDatabaseFilters = computed(
     databaseSearchKeyword.value.trim().length > 0 ||
     databaseStatusFilter.value !== 'all' ||
     databaseTypeFilter.value !== 'all',
+);
+
+const hasDomainFilters = computed(
+  () =>
+    domainSearchKeyword.value.trim().length > 0 ||
+    domainStatusFilter.value !== 'all' ||
+    domainAutoRenewFilter.value !== 'all',
 );
 
 const cvmEmptyDescription = computed(() =>
@@ -589,8 +789,15 @@ const databaseEmptyDescription = computed(() =>
     : '当前账号下还没有可展示的数据库数据。',
 );
 
+const domainEmptyDescription = computed(() =>
+  isAllAccountsView.value
+    ? '全部账号下还没有可展示的域名数据。'
+    : '当前账号下还没有可展示的域名数据。',
+);
+
 const cvmTableSummary = computed(() => buildPageSummary(cvmPage.value, filteredCvmRows.value.length));
 const databaseTableSummary = computed(() => buildPageSummary(databasePage.value, filteredDatabaseRows.value.length));
+const domainTableSummary = computed(() => buildPageSummary(domainPage.value, filteredDomainRows.value.length));
 
 let loadSequence = 0;
 
@@ -605,12 +812,18 @@ function resetDatabaseFilters() {
   databaseTypeFilter.value = 'all';
 }
 
+function resetDomainFilters() {
+  domainSearchKeyword.value = '';
+  domainStatusFilter.value = 'all';
+  domainAutoRenewFilter.value = 'all';
+}
+
 function handleSelectScope(value: string) {
   activeScope.value = value;
 }
 
 function handleResourceTabChange(value: string) {
-  if (value === 'cvm' || value === 'database') {
+  if (value === 'cvm' || value === 'database' || value === 'domain') {
     activeResourceTab.value = value;
   }
 }
@@ -618,11 +831,13 @@ function handleResourceTabChange(value: string) {
 function clearDashboardData() {
   cvmRows.value = [];
   databaseRows.value = [];
+  domainRows.value = [];
 }
 
 function clearSectionErrors() {
   cvmErrorMessage.value = '';
   databaseErrorMessage.value = '';
+  domainErrorMessage.value = '';
 }
 
 function buildPageSummary(page: number, total: number) {
@@ -743,6 +958,19 @@ async function loadDatabaseDashboardRows(): Promise<DatabaseDashboardInstanceIte
   return list;
 }
 
+async function loadDomainDashboardRows(): Promise<DomainDashboardInstanceItem[]> {
+  const scopedAccount = isAllAccountsView.value
+    ? null
+    : accountsStore.accountList.find((account) => account.id === activeScope.value) ?? null;
+  const { list } = await getDomainDashboardList({
+    AccountName: scopedAccount?.name,
+    AccountUUID: scopedAccount?.uuid ?? scopedAccount?.id,
+    Full: true,
+  });
+
+  return list;
+}
+
 async function loadCvmSection(requestId: number, preserveExistingData: boolean) {
   try {
     const rows = await loadCloudDashboardRows();
@@ -795,6 +1023,32 @@ async function loadDatabaseSection(requestId: number, preserveExistingData: bool
   }
 }
 
+async function loadDomainSection(requestId: number, preserveExistingData: boolean) {
+  try {
+    const rows = await loadDomainDashboardRows();
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    domainRows.value = rows;
+  } catch (error) {
+    if (requestId !== loadSequence) {
+      return;
+    }
+
+    if (!preserveExistingData) {
+      domainRows.value = [];
+    }
+
+    const message = error instanceof Error ? error.message : '加载失败';
+    domainErrorMessage.value = `域名列表加载失败：${message}`;
+  } finally {
+    if (requestId === loadSequence) {
+      domainLoading.value = false;
+    }
+  }
+}
+
 async function loadData(isManual = false) {
   const requestId = ++loadSequence;
   const preserveExistingData = isManual;
@@ -804,6 +1058,7 @@ async function loadData(isManual = false) {
     clearSectionErrors();
     cvmLoading.value = accountsStore.loading;
     databaseLoading.value = accountsStore.loading;
+    domainLoading.value = accountsStore.loading;
     summaryCardsLoading.value = accountsStore.loading;
     refreshing.value = false;
     return;
@@ -816,14 +1071,17 @@ async function loadData(isManual = false) {
     clearDashboardData();
     resetCvmFilters();
     resetDatabaseFilters();
+    resetDomainFilters();
     cvmLoading.value = true;
     databaseLoading.value = true;
+    domainLoading.value = true;
     summaryCardsLoading.value = true;
   }
 
   await Promise.allSettled([
     loadCvmSection(requestId, preserveExistingData),
     loadDatabaseSection(requestId, preserveExistingData),
+    loadDomainSection(requestId, preserveExistingData),
   ]);
 
   if (requestId !== loadSequence) {
@@ -870,6 +1128,10 @@ watch([activeScope, databaseSearchKeyword, databaseStatusFilter, databaseTypeFil
   databasePage.value = 1;
 });
 
+watch([activeScope, domainSearchKeyword, domainStatusFilter, domainAutoRenewFilter], () => {
+  domainPage.value = 1;
+});
+
 watch(cvmPageCount, (pageCount) => {
   if (cvmPage.value > pageCount) {
     cvmPage.value = pageCount;
@@ -879,6 +1141,12 @@ watch(cvmPageCount, (pageCount) => {
 watch(databasePageCount, (pageCount) => {
   if (databasePage.value > pageCount) {
     databasePage.value = pageCount;
+  }
+});
+
+watch(domainPageCount, (pageCount) => {
+  if (domainPage.value > pageCount) {
+    domainPage.value = pageCount;
   }
 });
 

@@ -5,6 +5,8 @@ import type {
   CloudDashboardInstanceItem,
   CvmListItem,
   DashboardStats,
+  DomainDashboardInstanceItem,
+  DomainDashboardListResult,
   DatabaseDashboardInstanceItem,
   DatabaseDashboardListResult,
   DatabaseListItem,
@@ -30,6 +32,11 @@ const CHARGE_TYPE_MAP: Record<string, string> = {
   POSTPAID_BY_HOUR: '按量计费',
 };
 const EXPIRING_SOON_DAYS = 30;
+const DOMAIN_AUTO_RENEW_MAP: Record<string, string> = {
+  '0': '未设置',
+  '1': '已开启',
+  '2': '已关闭',
+};
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -298,9 +305,62 @@ export function translateDatabaseDashboardList(
   };
 }
 
+function normalizeDomainAutoRenew(autoRenew?: number | string): DomainDashboardInstanceItem['autoRenew'] {
+  if (autoRenew === undefined || autoRenew === null || autoRenew === '') {
+    return '--';
+  }
+
+  return DOMAIN_AUTO_RENEW_MAP[String(autoRenew)] ?? String(autoRenew);
+}
+
+export function translateDomainDashboardList(
+  response: unknown,
+): DomainDashboardListResult {
+  const { list: sourceList, total } = extractListPayload(response);
+
+  const list = sourceList.map((rawInstance, index) => {
+    const instance = asRecord(rawInstance) ?? {};
+    const numericAccountId = readNumber(instance, ['AccountId', 'accountId']);
+    const accountId =
+      readString(instance, ['AccountUuid', 'accountUuid', 'AccountUUID', 'accountUUID']) ||
+      (numericAccountId !== undefined
+        ? String(numericAccountId)
+        : '');
+    const domainId = readString(instance, ['DomainId', 'domainId']) || '--';
+    const domainName = readString(instance, ['DomainName', 'domainName']) || '--';
+    const accountName = readString(instance, ['AccountName', 'accountName']);
+    const buyStatus = readString(instance, ['BuyStatus', 'buyStatus']) || '--';
+    const autoRenewCode = String(readNumber(instance, ['AutoRenew', 'autoRenew']) ?? '');
+    const isPremium = getField(instance, ['IsPremium', 'isPremium']) === true;
+
+    return {
+      rowId: `${accountId || 'unknown'}:${domainId || domainName || index}`,
+      accountId,
+      account: accountName || accountId || '--',
+      domainId,
+      domainName,
+      buyStatus,
+      buyStatusCode: buyStatus,
+      autoRenew: normalizeDomainAutoRenew(autoRenewCode),
+      autoRenewCode,
+      tld: readString(instance, ['Tld', 'tld']) || '--',
+      codeTld: readString(instance, ['CodeTld', 'codeTld']) || '--',
+      isPremium: isPremium ? '是' : '否',
+      creationDate: readString(instance, ['CreationDate', 'creationDate']),
+      expirationDate: readString(instance, ['ExpirationDate', 'expirationDate']),
+    };
+  });
+
+  return {
+    list,
+    total: total ?? list.length,
+  };
+}
+
 export function buildDashboardStats(
   cvmList: Array<{ statusCode: string; expiredTime?: string }>,
   databaseList: Array<{ statusCode: string; expiredTime?: string }>,
+  domainList: Array<{ expirationDate?: string }>,
 ): DashboardStats {
   const runningCount =
     cvmList.filter((item) => item.statusCode === 'RUNNING').length +
@@ -312,11 +372,13 @@ export function buildDashboardStats(
 
   const expiringSoonCount =
     cvmList.filter((item) => isExpiringSoon(item.expiredTime)).length +
-    databaseList.filter((item) => isExpiringSoon(item.expiredTime)).length;
+    databaseList.filter((item) => isExpiringSoon(item.expiredTime)).length +
+    domainList.filter((item) => isExpiringSoon(item.expirationDate)).length;
 
   return {
     cvmTotal: cvmList.length,
     databaseTotal: databaseList.length,
+    domainTotal: domainList.length,
     runningCount,
     abnormalCount,
     expiringSoonCount,

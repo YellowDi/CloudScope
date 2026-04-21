@@ -108,9 +108,10 @@
                 <div class="min-w-0 flex-1">
                   <CardTitle class="truncate text-[18px] tracking-tight">{{ account.name }}</CardTitle>
                 </div>
-                <div class="shrink-0 rounded-full bg-stone-200 px-3 py-1 text-xs font-medium text-stone-600 dark:bg-zinc-800 dark:text-zinc-400">
-                  {{ formatStatus(account.statusCode, account.status) }}
-                </div>
+                <StatusBadge
+                  v-bind="getAccountStatusBadge(account.statusCode, account.status)"
+                  class="shrink-0"
+                />
               </div>
 
               <div class="mt-4 rounded-[16px] bg-stone-100 px-4 py-3.5 dark:bg-zinc-900">
@@ -254,12 +255,11 @@
             />
 
             <template v-if="isEditMode">
-              <BaseInput
+              <BaseSelect
                 v-model="form.status"
-                label="状态码"
-                type="number"
-                placeholder="请输入状态码"
-                autocomplete="off"
+                label="账号状态"
+                :options="ACCOUNT_STATUS_OPTIONS"
+                placeholder="请选择账号状态"
               />
             </template>
             <template v-else>
@@ -336,6 +336,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { ChevronDown, LoaderCircle, LogIn, PencilLine } from 'lucide-vue-next';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseInput from '@/components/BaseInput.vue';
+import BaseSelect from '@/components/BaseSelect.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonLoader from '@/components/SkeletonLoader.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -349,10 +350,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { TooltipWrap } from '@/components/ui/tooltip';
 import { useHorizontalOverflowMask } from '@/composables/useHorizontalOverflowMask';
 import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
 import type { CloudAccount } from '@/services/types';
+import { ACCOUNT_STATUS_OPTIONS, formatAccountStatus, isValidAccountStatus } from '@/services/accounts';
 import { useAccountsStore } from '@/store/accounts';
 import { useAppStore } from '@/store/app';
 import { formatDateTimeWithMinutes } from '@/utils/time';
@@ -365,6 +368,8 @@ type AccountDetailField = {
   numeric?: boolean;
   danger?: boolean;
 };
+type AccountStatusBadgeTone = 'green' | 'red';
+type AccountStatusBadgeIcon = 'check' | 'alert';
 
 const accountsStore = useAccountsStore();
 const appStore = useAppStore();
@@ -383,10 +388,14 @@ const form = reactive({
   region: 'ap-guangzhou',
   secretId: '',
   secretKey: '',
-  status: '0',
+  status: '1',
 });
 const rows = computed(() => accountsStore.accountList);
 const isEditMode = computed(() => dialogMode.value === 'edit');
+const accountStatusBadgeMap: Record<string, { tone: AccountStatusBadgeTone; icon: AccountStatusBadgeIcon }> = {
+  正常: { tone: 'green', icon: 'check' },
+  异常: { tone: 'red', icon: 'alert' },
+};
 const accountCategoryTabs = [
   { value: 'tencent', label: '腾讯云' },
   { value: 'filing', label: '备案' },
@@ -444,7 +453,7 @@ function openEditDialog(account: CloudAccount) {
   form.region = account.region;
   form.secretId = '';
   form.secretKey = '';
-  form.status = typeof account.statusCode === 'number' ? String(account.statusCode) : '0';
+  form.status = isValidAccountStatus(account.statusCode) ? String(account.statusCode) : '1';
 }
 
 function isAccountExpanded(accountId: string) {
@@ -488,7 +497,7 @@ function resetForm() {
   form.region = 'ap-guangzhou';
   form.secretId = '';
   form.secretKey = '';
-  form.status = '0';
+  form.status = '1';
 }
 
 function resetDialogState() {
@@ -508,7 +517,7 @@ function parseStatus(value: string) {
     return null;
   }
 
-  return parsed;
+  return isValidAccountStatus(parsed) ? parsed : null;
 }
 
 async function handleSubmit() {
@@ -534,7 +543,7 @@ async function handleSubmit() {
         throw new Error('当前账号缺少可编辑的 Id');
       }
       if (status === null) {
-        throw new Error('状态码必须为整数');
+        throw new Error('账号状态只能是正常或异常');
       }
 
       await accountsStore.editAccount({
@@ -610,12 +619,15 @@ function isLowAvailableBalance(value?: number) {
   return typeof value === 'number' && !Number.isNaN(value) && value < 1000;
 }
 
-function formatStatus(statusCode?: number, fallback?: string) {
-  if (typeof statusCode === 'number') {
-    return `状态码 ${statusCode}`;
-  }
+function getAccountStatusBadge(statusCode?: number, fallback?: string) {
+  const label = formatAccountStatus(statusCode, fallback);
+  const preset = accountStatusBadgeMap[label] ?? accountStatusBadgeMap.异常;
 
-  return fallback || '--';
+  return {
+    label,
+    tone: preset.tone,
+    icon: preset.icon,
+  };
 }
 
 function getAccountMetaFields(account: CloudAccount): AccountDetailField[] {

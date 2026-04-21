@@ -223,6 +223,14 @@ export interface DashboardListReq {
   PageSize?: number;
 }
 
+export interface DomainListReq {
+  AccountName?: string;
+  AccountUUID?: string;
+  Full?: boolean;
+  PageNum?: number;
+  PageSize?: number;
+}
+
 export interface DatabaseDashboardInstanceRow {
   AccountId?: number;
   AccountName?: string;
@@ -266,6 +274,48 @@ export interface DatabaseDashboardListResult {
   total: number;
 }
 
+export interface DomainDashboardInstanceRow {
+  AccountId?: number;
+  AccountName?: string;
+  AccountUuid?: string;
+  AutoRenew?: number;
+  BuyStatus?: string;
+  CodeTld?: string;
+  CreationDate?: string;
+  DomainId?: string;
+  DomainName?: string;
+  ExpirationDate?: string;
+  IsPremium?: boolean;
+  Tld?: string;
+}
+
+export interface DomainDashboardListResponse {
+  List?: DomainDashboardInstanceRow[];
+  Total?: number;
+}
+
+export interface DomainDashboardInstanceItem {
+  rowId: string;
+  accountId: string;
+  account: string;
+  domainId: string;
+  domainName: string;
+  buyStatus: string;
+  buyStatusCode: string;
+  autoRenew: string;
+  autoRenewCode: string;
+  tld: string;
+  codeTld: string;
+  isPremium: string;
+  creationDate: string;
+  expirationDate: string;
+}
+
+export interface DomainDashboardListResult {
+  list: DomainDashboardInstanceItem[];
+  total: number;
+}
+
 export interface DatabaseListItem {
   id: string;
   name: string;
@@ -280,6 +330,7 @@ export interface DatabaseListItem {
 export interface DashboardStats {
   cvmTotal: number;
   databaseTotal: number;
+  domainTotal: number;
   runningCount: number;
   abnormalCount: number;
   expiringSoonCount: number;

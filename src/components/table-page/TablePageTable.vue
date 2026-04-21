@@ -49,6 +49,8 @@ const HORIZONTAL_SCROLL_HINT_SESSION_PREFIX = "buildguard:table-hscroll-hint:"
 const ROW_CLICK_DRAG_THRESHOLD = 5
 const ALIGN_TO_HEADER_WIDE_BREAKPOINT = 2000
 const COMPACT_DETAIL_TABLE_WIDTH_THRESHOLD = 48
+const COMPACT_DETAIL_TABLE_WIDTH_HYSTERESIS = 16
+const FILL_COLUMN_WIDTH_HYSTERESIS = 12
 const HORIZONTAL_SCROLLBAR_MIN_THUMB_SIZE = 40
 const NATIVE_HORIZONTAL_SCROLLBAR_MASK_SIZE = 18
 const ROW_CLICK_IGNORE_SELECTOR = [
@@ -378,6 +380,19 @@ const prevHorizontalOverflow = ref(false)
 
 let scrollRoot: ScrollRoot | null = null
 let resizeObserver: ResizeObserver | null = null
+let layoutSyncFrameId = 0
+let layoutSyncPending = false
+
+function setStickyColumnWidths(nextWidths: number[]) {
+  if (
+    stickyColumnWidths.value.length === nextWidths.length
+    && stickyColumnWidths.value.every((width, index) => width === nextWidths[index])
+  ) {
+    return
+  }
+
+  stickyColumnWidths.value = nextWidths
+}
 
 function syncHorizontalScrollbarMetrics(contentWidth?: number) {
   if (!tableWrapperRef.value) {
@@ -1138,7 +1153,7 @@ function clearStickyState() {
   stickyHeaderWidth.value = 0
   stickyTableWidth.value = 0
   stickyScrollLeft.value = 0
-  stickyColumnWidths.value = []
+  setStickyColumnWidths([])
 }
 
 function syncActionColumnWidth(headerCells?: HTMLElement[]) {
@@ -1199,6 +1214,34 @@ function createMeasurementHost() {
   return measurementHost
 }
 
+function resolveCompactTableMode(intrinsicWidth: number, wrapperClientWidth: number) {
+  if (props.listLevelTable) {
+    return false
+  }
+
+  const availableSpace = wrapperClientWidth - intrinsicWidth
+
+  if (compactTableActive.value) {
+    return availableSpace >= COMPACT_DETAIL_TABLE_WIDTH_THRESHOLD - COMPACT_DETAIL_TABLE_WIDTH_HYSTERESIS
+  }
+
+  return availableSpace >= COMPACT_DETAIL_TABLE_WIDTH_THRESHOLD
+}
+
+function resolveFillColumnMode(intrinsicWidth: number, wrapperClientWidth: number, compactTableMode: boolean) {
+  if (compactTableMode) {
+    return false
+  }
+
+  const availableSpace = wrapperClientWidth - intrinsicWidth
+
+  if (fillColumnActive.value) {
+    return availableSpace >= -(1 + FILL_COLUMN_WIDTH_HYSTERESIS)
+  }
+
+  return availableSpace >= -1
+}
+
 function measureTableLayout() {
   if (!tableWrapperRef.value || !tableRef.value || typeof document === "undefined") {
     return {
@@ -1248,12 +1291,8 @@ function measureTableLayout() {
 
   measurementHost.remove()
 
-  const compactTableActive = !props.listLevelTable
-    && wrapperClientWidth - intrinsicWidth >= COMPACT_DETAIL_TABLE_WIDTH_THRESHOLD
-
-  if (!compactTableActive) {
-    fillColumnActive = intrinsicWidth <= wrapperClientWidth + 1
-  }
+  const compactTableActive = resolveCompactTableMode(intrinsicWidth, wrapperClientWidth)
+  fillColumnActive = resolveFillColumnMode(intrinsicWidth, wrapperClientWidth, compactTableActive)
 
   return {
     overflow: intrinsicWidth > wrapperClientWidth + 1,
@@ -1320,11 +1359,11 @@ function syncStickyHeaderState(headerCells?: HTMLElement[]) {
   stickyHeaderTop.value = stickyLine
   stickyTableWidth.value = tableRef.value.scrollWidth
   stickyScrollLeft.value = tableWrapperRef.value.scrollLeft
-  stickyColumnWidths.value = resolvedHeaderCells.map(cell => cell.getBoundingClientRect().width)
+  setStickyColumnWidths(resolvedHeaderCells.map(cell => Math.ceil(cell.getBoundingClientRect().width)))
   const wrapperWidth = props.listLevelTable
     ? wrapperRect.width
     : wrapperRect.width + embeddedViewportExpandLeft.value + embeddedViewportExpandRight.value
-  stickyHeaderWidth.value = wrapperWidth
+  stickyHeaderWidth.value = Math.ceil(wrapperWidth)
   stickyHeaderActive.value = wrapperRect.top <= stickyLine && wrapperRect.bottom > stickyLine + headerHeight
 }
 
@@ -1396,12 +1435,40 @@ function attachScrollRootListener() {
 }
 
 function scheduleStickySync() {
-  void nextTick(() => {
-    attachScrollRootListener()
-    stopObservingStickyLayout()
-    observeStickyLayout()
+  if (typeof window === "undefined") {
     void syncTableLayoutState()
+    return
+  }
+
+  if (layoutSyncPending) {
+    return
+  }
+
+  layoutSyncPending = true
+
+  void nextTick(() => {
+    if (!layoutSyncPending) {
+      return
+    }
+
+    layoutSyncFrameId = window.requestAnimationFrame(() => {
+      layoutSyncPending = false
+      layoutSyncFrameId = 0
+      attachScrollRootListener()
+      void syncTableLayoutState()
+    })
   })
+}
+
+function cancelScheduledStickySync() {
+  layoutSyncPending = false
+
+  if (!layoutSyncFrameId || typeof window === "undefined") {
+    return
+  }
+
+  window.cancelAnimationFrame(layoutSyncFrameId)
+  layoutSyncFrameId = 0
 }
 
 function observeStickyLayout() {
@@ -1410,15 +1477,11 @@ function observeStickyLayout() {
   }
 
   resizeObserver = new ResizeObserver(() => {
-    void syncTableLayoutState()
+    scheduleStickySync()
   })
 
-  if (tableWrapperRef.value) {
-    resizeObserver.observe(tableWrapperRef.value)
-  }
-
-  if (tableRef.value) {
-    resizeObserver.observe(tableRef.value)
+  if (tableOuterRef.value) {
+    resizeObserver.observe(tableOuterRef.value)
   }
 }
 
@@ -1478,6 +1541,9 @@ onMounted(() => {
   window.addEventListener("pointercancel", clearHorizontalScrollbarDrag, { passive: true })
   observeStickyLayout()
   scheduleStickySync()
+  void document.fonts?.ready.then(() => {
+    scheduleStickySync()
+  })
 })
 
 onBeforeUnmount(() => {
@@ -1488,6 +1554,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("pointercancel", clearHorizontalScrollbarDrag)
   detachScrollRootListener()
   stopObservingStickyLayout()
+  cancelScheduledStickySync()
   clearHorizontalScrollbarDrag()
   clearRowPointerDown()
 })

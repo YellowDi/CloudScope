@@ -4,11 +4,11 @@
       class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
       :style="{ top: 'var(--table-page-sticky-top)' }"
     >
-      <div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-2">
-        <h1 class="leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
+      <div class="flex flex-col gap-1.5 lg:flex-row lg:flex-nowrap lg:items-baseline lg:gap-2">
+        <h1 class="shrink-0 leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
             资源总览
         </h1>
-        <p class="max-w-3xl text-[18px] leading-none font-normal text-muted-foreground sm:text-[20px]">
+        <p class="max-w-3xl text-[18px] leading-none font-normal text-muted-foreground lg:min-w-0 lg:flex-1 lg:max-w-none lg:overflow-hidden lg:text-ellipsis lg:whitespace-nowrap lg:text-[17px] xl:text-[18px]">
           支持查看全部账号聚合数据，也可切换到单个账号查看 CVM、TencentDB 与域名资源状态。
         </p>
       </div>

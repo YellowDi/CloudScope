@@ -327,6 +327,8 @@
                   </p>
                 </div>
 
+                <Separator />
+
                 <Alert v-if="subAccountError" variant="destructive">
                   <AlertTitle>子账号操作失败</AlertTitle>
                   <AlertDescription>{{ subAccountError }}</AlertDescription>
@@ -395,6 +397,8 @@
                     </template>
                   </div>
                 </section>
+
+                <Separator />
 
                 <section class="grid gap-4">
                   <div>
@@ -517,6 +521,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipWrap } from '@/components/ui/tooltip';

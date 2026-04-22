@@ -567,6 +567,44 @@
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog :open="quickLoginPasswordDialogOpen" @update:open="handleQuickLoginPasswordDialogOpenChange">
+        <DialogContent class="sm:max-w-md" :show-close-button="!quickLoginPasswordDialogBusy">
+          <DialogHeader class="pr-8">
+            <DialogTitle>复制登录密码</DialogTitle>
+            <DialogDescription>
+              已打开快捷登录页。自动复制失败时，可在这里手动复制密码。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div class="grid gap-4">
+            <div class="rounded-md border border-input bg-muted/30 px-3 py-3 font-mono text-sm break-all text-foreground">
+              {{ quickLoginPasswordValue }}
+            </div>
+
+            <DialogFooter>
+              <div class="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  :disabled="quickLoginPasswordDialogBusy"
+                  @click="resetQuickLoginPasswordDialogState"
+                >
+                  关闭
+                </Button>
+                <Button
+                  type="button"
+                  :disabled="quickLoginPasswordDialogBusy"
+                  @click="handleCopyQuickLoginPassword"
+                >
+                  <LoaderCircle v-if="quickLoginPasswordCopying" class="mr-1 h-4 w-4 animate-spin" />
+                  复制密码
+                </Button>
+              </div>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </template>
 
     <EmptyState
@@ -655,6 +693,9 @@ const quickLoginError = ref('');
 const quickLoginLoading = ref(false);
 const quickLoginLoadingAccountId = ref('');
 const quickLoginSubmittingId = ref('');
+const quickLoginPasswordDialogOpen = ref(false);
+const quickLoginPasswordValue = ref('');
+const quickLoginPasswordCopying = ref(false);
 const form = reactive({
   name: '',
   region: 'ap-guangzhou',
@@ -679,6 +720,7 @@ const subAccountManagerBusy = computed(
     Boolean(deletingSubAccountId.value),
 );
 const quickLoginDialogBusy = computed(() => quickLoginLoading.value || Boolean(quickLoginSubmittingId.value));
+const quickLoginPasswordDialogBusy = computed(() => quickLoginPasswordCopying.value);
 const isEditSubAccountMode = computed(() => subAccountDialogMode.value === 'edit');
 const accountStatusBadgeMap: Record<string, { tone: AccountStatusBadgeTone; icon: AccountStatusBadgeIcon }> = {
   正常: { tone: 'green', icon: 'check' },
@@ -882,6 +924,22 @@ function resetQuickLoginDialogState() {
   quickLoginSubmittingId.value = '';
 }
 
+function handleQuickLoginPasswordDialogOpenChange(open: boolean) {
+  if (quickLoginPasswordDialogBusy.value) {
+    return;
+  }
+
+  quickLoginPasswordDialogOpen.value = open;
+  if (!open) {
+    resetQuickLoginPasswordDialogState();
+  }
+}
+
+function resetQuickLoginPasswordDialogState() {
+  quickLoginPasswordDialogOpen.value = false;
+  quickLoginPasswordValue.value = '';
+}
+
 async function copyTextToClipboard(text: string) {
   if (!text) {
     return false;
@@ -912,6 +970,30 @@ async function copyTextToClipboard(text: string) {
   }
 }
 
+async function handleCopyQuickLoginPassword() {
+  if (!quickLoginPasswordValue.value) {
+    return;
+  }
+
+  quickLoginPasswordCopying.value = true;
+  let copied = false;
+  try {
+    copied = await copyTextToClipboard(quickLoginPasswordValue.value);
+    if (!copied) {
+      throw new Error('复制失败，请手动复制密码');
+    }
+
+    appStore.setNotice('密码已复制', 'info');
+  } catch (error) {
+    appStore.setNotice(error instanceof Error ? error.message : '复制失败，请手动复制密码', 'error');
+  } finally {
+    quickLoginPasswordCopying.value = false;
+    if (copied) {
+      resetQuickLoginPasswordDialogState();
+    }
+  }
+}
+
 async function performQuickLogin(subAccount: SubAccount) {
   const tencentAccountUin = parseOptionalInteger(subAccount.tencentAccountUin ?? '');
 
@@ -931,18 +1013,20 @@ async function performQuickLogin(subAccount: SubAccount) {
       throw new Error('后端未返回快捷登录地址');
     }
 
+    const copied = await copyTextToClipboard(result.password);
     const loginWindow = window.open(result.loginUrl, '_blank');
     if (!loginWindow) {
       throw new Error('新标签页打开失败，请检查浏览器弹窗权限');
     }
 
-    const copied = await copyTextToClipboard(result.password);
     if (!result.password) {
       appStore.setNotice('已打开登录页，但后端未返回密码', 'info');
     } else if (copied) {
       appStore.setNotice('已打开登录页，密码已复制', 'info');
     } else {
-      appStore.setNotice('已打开登录页，但密码复制失败', 'error');
+      quickLoginPasswordValue.value = result.password;
+      quickLoginPasswordDialogOpen.value = true;
+      appStore.setNotice('已打开登录页，请在弹窗里点击复制密码', 'info');
     }
 
     resetQuickLoginDialogState();

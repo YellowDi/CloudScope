@@ -68,6 +68,20 @@ function extractSubAccountItems(payload: unknown): unknown[] {
   return [];
 }
 
+function extractQuickLoginPayload(payload: unknown): Record<string, unknown> {
+  const record = asRecord(payload);
+  if (!record) {
+    return {};
+  }
+
+  const nestedData = getField<unknown>(record, ['Data', 'data']);
+  if (nestedData) {
+    return extractQuickLoginPayload(nestedData);
+  }
+
+  return record;
+}
+
 function normalizeSubAccount(item: unknown, index: number): SubAccount {
   const record = asRecord(item) ?? {};
   const recordId = readNumber(record, ['Id', 'id']);
@@ -176,7 +190,7 @@ export async function getSubAccountQuickLogin(payload: QuickLoginSubAccountPaylo
     },
   });
 
-  const record = asRecord(response) ?? {};
+  const record = extractQuickLoginPayload(response);
 
   return {
     loginUrl: readString(record, ['LoginURL', 'loginUrl', 'LoginUrl']) || '',

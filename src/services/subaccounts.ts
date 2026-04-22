@@ -5,6 +5,7 @@ import type {
   QuickLoginSubAccountPayload,
   SubAccount,
   SubAccountQuickLoginResult,
+  UpdateSubAccountPayload,
 } from './types';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -111,7 +112,6 @@ export async function createSubAccount(payload: CreateSubAccountPayload) {
     Password: string;
     Status: number;
     SubAccountName: string;
-    SubAccountUin?: number;
     TencentAccountName: string;
     TencentAccountUin?: number;
     TencentAccountUuid?: string;
@@ -122,7 +122,6 @@ export async function createSubAccount(payload: CreateSubAccountPayload) {
       Password: payload.password,
       Status: payload.status ?? 1,
       SubAccountName: payload.subAccountName,
-      SubAccountUin: payload.subAccountUin,
       TencentAccountName: payload.tencentAccountName,
       TencentAccountUin: payload.tencentAccountUin,
       TencentAccountUuid: payload.tencentAccountUuid,
@@ -135,10 +134,6 @@ export async function deleteSubAccount(payload: DeleteSubAccountPayload) {
     Id: number;
     Status: number;
     SubAccountName: string;
-    SubAccountUin?: number;
-    TencentAccountName: string;
-    TencentAccountUin?: number;
-    TencentAccountUuid?: string;
   }>({
     path: '/api/subaccount/update',
     method: 'POST',
@@ -146,32 +141,38 @@ export async function deleteSubAccount(payload: DeleteSubAccountPayload) {
       Id: payload.id,
       Status: 2,
       SubAccountName: payload.subAccountName,
-      SubAccountUin: payload.subAccountUin,
-      TencentAccountName: payload.tencentAccountName,
-      TencentAccountUin: payload.tencentAccountUin,
-      TencentAccountUuid: payload.tencentAccountUuid,
+    },
+  });
+}
+
+export async function updateSubAccount(payload: UpdateSubAccountPayload) {
+  return request<unknown, {
+    Id: number;
+    Password?: string;
+    Status?: number;
+    SubAccountName?: string;
+  }>({
+    path: '/api/subaccount/update',
+    method: 'POST',
+    body: {
+      Id: payload.id,
+      Password: payload.password,
+      Status: payload.status,
+      SubAccountName: payload.subAccountName,
     },
   });
 }
 
 export async function getSubAccountQuickLogin(payload: QuickLoginSubAccountPayload) {
   const response = await request<unknown, {
-    Id?: number;
     SubAccountName: string;
-    SubAccountUin?: number;
-    TencentAccountName: string;
-    TencentAccountUin?: number;
-    TencentAccountUuid?: string;
+    TencentAccountUin: number;
   }>({
     path: '/api/subaccount/quick_login',
     method: 'POST',
     body: {
-      Id: payload.id,
       SubAccountName: payload.subAccountName,
-      SubAccountUin: payload.subAccountUin,
-      TencentAccountName: payload.tencentAccountName,
       TencentAccountUin: payload.tencentAccountUin,
-      TencentAccountUuid: payload.tencentAccountUuid,
     },
   });
 

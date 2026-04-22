@@ -58,28 +58,26 @@ export interface CreateSubAccountPayload {
   password: string;
   status?: number;
   subAccountName: string;
-  subAccountUin?: number;
   tencentAccountName: string;
   tencentAccountUin?: number;
   tencentAccountUuid?: string;
+}
+
+export interface UpdateSubAccountPayload {
+  id: number;
+  password?: string;
+  status?: number;
+  subAccountName?: string;
 }
 
 export interface DeleteSubAccountPayload {
   id: number;
   subAccountName: string;
-  subAccountUin?: number;
-  tencentAccountName: string;
-  tencentAccountUin?: number;
-  tencentAccountUuid?: string;
 }
 
 export interface QuickLoginSubAccountPayload {
-  id?: number;
   subAccountName: string;
-  subAccountUin?: number;
-  tencentAccountName: string;
-  tencentAccountUin?: number;
-  tencentAccountUuid?: string;
+  tencentAccountUin: number;
 }
 
 export interface SubAccountQuickLoginResult {

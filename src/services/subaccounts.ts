@@ -2,7 +2,9 @@ import { request } from './http';
 import type {
   CreateSubAccountPayload,
   DeleteSubAccountPayload,
+  QuickLoginSubAccountPayload,
   SubAccount,
+  SubAccountQuickLoginResult,
 } from './types';
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -150,4 +152,33 @@ export async function deleteSubAccount(payload: DeleteSubAccountPayload) {
       TencentAccountUuid: payload.tencentAccountUuid,
     },
   });
+}
+
+export async function getSubAccountQuickLogin(payload: QuickLoginSubAccountPayload) {
+  const response = await request<unknown, {
+    Id?: number;
+    SubAccountName: string;
+    SubAccountUin?: number;
+    TencentAccountName: string;
+    TencentAccountUin?: number;
+    TencentAccountUuid?: string;
+  }>({
+    path: '/api/subaccount/quick_login',
+    method: 'POST',
+    body: {
+      Id: payload.id,
+      SubAccountName: payload.subAccountName,
+      SubAccountUin: payload.subAccountUin,
+      TencentAccountName: payload.tencentAccountName,
+      TencentAccountUin: payload.tencentAccountUin,
+      TencentAccountUuid: payload.tencentAccountUuid,
+    },
+  });
+
+  const record = asRecord(response) ?? {};
+
+  return {
+    loginUrl: readString(record, ['LoginURL', 'loginUrl', 'LoginUrl']) || '',
+    password: readString(record, ['Password', 'password']) || '',
+  } satisfies SubAccountQuickLoginResult;
 }

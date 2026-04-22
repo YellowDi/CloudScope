@@ -73,6 +73,20 @@ export interface DeleteSubAccountPayload {
   tencentAccountUuid?: string;
 }
 
+export interface QuickLoginSubAccountPayload {
+  id?: number;
+  subAccountName: string;
+  subAccountUin?: number;
+  tencentAccountName: string;
+  tencentAccountUin?: number;
+  tencentAccountUuid?: string;
+}
+
+export interface SubAccountQuickLoginResult {
+  loginUrl: string;
+  password: string;
+}
+
 export interface TencentAccountListRequest {
   Full: boolean;
   PageNum: number;
@@ -113,6 +127,11 @@ export interface SubAccountListItem {
 export interface SubAccountListResponse {
   List?: SubAccountListItem[];
   Total?: number;
+}
+
+export interface SubAccountQuickLoginResponse {
+  LoginURL?: string;
+  Password?: string;
 }
 
 export interface CloudInstanceListReq {

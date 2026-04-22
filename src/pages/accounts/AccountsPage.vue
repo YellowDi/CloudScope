@@ -220,9 +220,14 @@
                   type="button"
                   variant="outline"
                   class="h-7 w-auto shrink-0 justify-start gap-1 rounded-md px-0 text-[11px] has-[>svg]:pl-1 has-[>svg]:pr-1.75"
+                  :disabled="quickLoginLoadingAccountId === account.id || Boolean(quickLoginSubmittingId)"
                   @click="handleQuickLogin(account)"
                 >
-                  <LogIn class="h-3.5 w-3.5" />
+                  <LoaderCircle
+                    v-if="quickLoginLoadingAccountId === account.id"
+                    class="h-3.5 w-3.5 animate-spin"
+                  />
+                  <LogIn v-else class="h-3.5 w-3.5" />
                   快捷登录
                 </Button>
               </div>
@@ -492,6 +497,64 @@
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog :open="quickLoginDialogOpen" @update:open="handleQuickLoginDialogOpenChange">
+        <DialogContent class="sm:max-w-lg" :show-close-button="!quickLoginDialogBusy">
+          <DialogHeader class="pr-8">
+            <DialogTitle>选择子账号</DialogTitle>
+            <DialogDescription>
+              {{ quickLoginDialogAccount?.name }} 下存在多个子账号，请选择一个账号完成快捷登录。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div class="grid gap-4">
+            <Alert v-if="quickLoginError" variant="destructive">
+              <AlertTitle>快捷登录失败</AlertTitle>
+              <AlertDescription>{{ quickLoginError }}</AlertDescription>
+            </Alert>
+
+            <div class="grid max-h-80 gap-2 overflow-y-auto pr-1">
+              <div
+                v-for="subAccount in quickLoginCandidates"
+                :key="subAccount.id"
+                class="flex items-start justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3"
+              >
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium text-foreground">
+                    {{ subAccount.displayName }}
+                  </p>
+                  <p class="mt-1 text-sm text-muted-foreground">
+                    子账号名 {{ subAccount.name }}
+                    <span v-if="subAccount.uin"> · UIN {{ subAccount.uin }}</span>
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  class="h-8 shrink-0 px-3 text-[13px]"
+                  :disabled="Boolean(quickLoginSubmittingId)"
+                  @click="performQuickLogin(subAccount)"
+                >
+                  <LoaderCircle
+                    v-if="quickLoginSubmittingId === subAccount.id"
+                    class="mr-1 h-4 w-4 animate-spin"
+                  />
+                  快捷登录
+                </Button>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <div class="flex items-center justify-end gap-2">
+                <Button type="button" variant="outline" :disabled="quickLoginDialogBusy" @click="resetQuickLoginDialogState">
+                  取消
+                </Button>
+              </div>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </template>
 
     <EmptyState
@@ -528,7 +591,7 @@ import { TooltipWrap } from '@/components/ui/tooltip';
 import { useHorizontalOverflowMask } from '@/composables/useHorizontalOverflowMask';
 import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
 import { ACCOUNT_STATUS_OPTIONS, formatAccountStatus, isValidAccountStatus } from '@/services/accounts';
-import { createSubAccount, deleteSubAccount, getSubAccounts } from '@/services/subaccounts';
+import { createSubAccount, deleteSubAccount, getSubAccountQuickLogin, getSubAccounts } from '@/services/subaccounts';
 import type { CloudAccount, SubAccount } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { useAppStore } from '@/store/app';
@@ -565,6 +628,13 @@ const subAccountError = ref('');
 const subAccountFormError = ref('');
 const subAccountSubmitting = ref(false);
 const deletingSubAccountId = ref('');
+const quickLoginDialogOpen = ref(false);
+const quickLoginDialogAccount = ref<CloudAccount | null>(null);
+const quickLoginCandidates = ref<SubAccount[]>([]);
+const quickLoginError = ref('');
+const quickLoginLoading = ref(false);
+const quickLoginLoadingAccountId = ref('');
+const quickLoginSubmittingId = ref('');
 const form = reactive({
   name: '',
   region: 'ap-guangzhou',
@@ -582,6 +652,7 @@ const isEditMode = computed(() => dialogMode.value === 'edit');
 const dialogBusy = computed(
   () => submitting.value || deleting.value || subAccountSubmitting.value || Boolean(deletingSubAccountId.value),
 );
+const quickLoginDialogBusy = computed(() => quickLoginLoading.value || Boolean(quickLoginSubmittingId.value));
 const accountStatusBadgeMap: Record<string, { tone: AccountStatusBadgeTone; icon: AccountStatusBadgeIcon }> = {
   正常: { tone: 'green', icon: 'check' },
   异常: { tone: 'red', icon: 'alert' },
@@ -647,6 +718,12 @@ async function loadDialogSubAccounts() {
   }
 }
 
+async function loadOwnedSubAccounts(account: CloudAccount) {
+  const list = await getSubAccounts();
+  subAccounts.value = list;
+  return list.filter((item) => isSubAccountOwnedByAccount(item, account));
+}
+
 function openCreateDialog() {
   dialogTab.value = 'account';
   dialogMode.value = 'create';
@@ -683,8 +760,134 @@ function toggleAccountDetails(accountId: string) {
     : [...expandedAccountIds.value, accountId];
 }
 
-function handleQuickLogin(account: CloudAccount) {
-  appStore.setNotice(`${account.name} 的快捷登录将使用子账号信息，请先在编辑弹窗的子账号页维护`, 'info');
+function handleQuickLoginDialogOpenChange(open: boolean) {
+  if (quickLoginDialogBusy.value) {
+    return;
+  }
+
+  quickLoginDialogOpen.value = open;
+  if (!open) {
+    resetQuickLoginDialogState();
+  }
+}
+
+function resetQuickLoginDialogState() {
+  quickLoginDialogOpen.value = false;
+  quickLoginDialogAccount.value = null;
+  quickLoginCandidates.value = [];
+  quickLoginError.value = '';
+  quickLoginLoading.value = false;
+  quickLoginLoadingAccountId.value = '';
+  quickLoginSubmittingId.value = '';
+}
+
+async function copyTextToClipboard(text: string) {
+  if (!text) {
+    return false;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back to execCommand below.
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    return document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+async function performQuickLogin(subAccount: SubAccount) {
+  const tencentAccountUin = parseOptionalInteger(subAccount.tencentAccountUin ?? '');
+  const subAccountUin = parseOptionalInteger(subAccount.uin ?? '');
+
+  if (tencentAccountUin === null) {
+    throw new Error('当前子账号所属云账号 UIN 不合法');
+  }
+  if (subAccountUin === null) {
+    throw new Error('当前子账号 UIN 不合法');
+  }
+
+  quickLoginSubmittingId.value = subAccount.id;
+
+  try {
+    const result = await getSubAccountQuickLogin({
+      id: subAccount.recordId,
+      subAccountName: subAccount.name,
+      subAccountUin,
+      tencentAccountName: subAccount.tencentAccountName,
+      tencentAccountUin,
+      tencentAccountUuid: subAccount.tencentAccountUuid,
+    });
+
+    if (!result.loginUrl) {
+      throw new Error('后端未返回快捷登录地址');
+    }
+
+    const loginWindow = window.open(result.loginUrl, '_blank');
+    if (!loginWindow) {
+      throw new Error('新标签页打开失败，请检查浏览器弹窗权限');
+    }
+
+    const copied = await copyTextToClipboard(result.password);
+    if (!result.password) {
+      appStore.setNotice('已打开登录页，但后端未返回密码', 'info');
+    } else if (copied) {
+      appStore.setNotice('已打开登录页，密码已复制', 'info');
+    } else {
+      appStore.setNotice('已打开登录页，但密码复制失败', 'error');
+    }
+
+    resetQuickLoginDialogState();
+  } finally {
+    quickLoginSubmittingId.value = '';
+  }
+}
+
+async function handleQuickLogin(account: CloudAccount) {
+  quickLoginError.value = '';
+  quickLoginLoading.value = true;
+  quickLoginLoadingAccountId.value = account.id;
+  quickLoginDialogAccount.value = account;
+
+  try {
+    const ownedSubAccounts = await loadOwnedSubAccounts(account);
+
+    if (ownedSubAccounts.length === 0) {
+      appStore.setNotice(`${account.name} 暂无可用子账号，请先维护子账号信息`, 'error');
+      resetQuickLoginDialogState();
+      return;
+    }
+
+    if (ownedSubAccounts.length === 1) {
+      await performQuickLogin(ownedSubAccounts[0]);
+      return;
+    }
+
+    quickLoginCandidates.value = ownedSubAccounts;
+    quickLoginDialogOpen.value = true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '快捷登录失败';
+    quickLoginError.value = message;
+    appStore.setNotice(message, 'error');
+  } finally {
+    quickLoginLoading.value = false;
+    quickLoginLoadingAccountId.value = '';
+  }
 }
 
 function handleDialogOpenChange(open: boolean) {

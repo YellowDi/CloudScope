@@ -43,6 +43,36 @@ export interface UpdateAccountPayload {
   status: number;
 }
 
+export interface SubAccount {
+  id: string;
+  recordId?: number;
+  displayName: string;
+  name: string;
+  uin?: string;
+  tencentAccountName: string;
+  tencentAccountUin?: string;
+  tencentAccountUuid?: string;
+}
+
+export interface CreateSubAccountPayload {
+  password: string;
+  status?: number;
+  subAccountName: string;
+  subAccountUin?: number;
+  tencentAccountName: string;
+  tencentAccountUin?: number;
+  tencentAccountUuid?: string;
+}
+
+export interface DeleteSubAccountPayload {
+  id: number;
+  subAccountName: string;
+  subAccountUin?: number;
+  tencentAccountName: string;
+  tencentAccountUin?: number;
+  tencentAccountUuid?: string;
+}
+
 export interface TencentAccountListRequest {
   Full: boolean;
   PageNum: number;
@@ -68,6 +98,21 @@ export interface TencentAccountListItem {
 export interface TencentAccountListResponse {
   List: TencentAccountListItem[];
   Total: number;
+}
+
+export interface SubAccountListItem {
+  Id?: number;
+  SubAccountDisplayName?: string;
+  SubAccountName?: string;
+  SubAccountUin?: number;
+  TencentAccountName?: string;
+  TencentAccountUin?: number;
+  TencentAccountUuid?: string;
+}
+
+export interface SubAccountListResponse {
+  List?: SubAccountListItem[];
+  Total?: number;
 }
 
 export interface CloudInstanceListReq {

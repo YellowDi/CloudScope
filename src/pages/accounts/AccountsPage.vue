@@ -232,15 +232,217 @@
       </div>
 
       <Dialog :open="dialogOpen" @update:open="handleDialogOpenChange">
-        <DialogContent class="sm:max-w-xl" :show-close-button="!submitting && !deleting">
+        <DialogContent class="sm:max-w-xl" :show-close-button="!dialogBusy">
           <DialogHeader class="pr-8">
             <DialogTitle>{{ isEditMode ? '编辑云账号' : '添加云账号' }}</DialogTitle>
             <DialogDescription>
-              {{ isEditMode ? '修改账号名称、地域和状态。删除操作需要二次确认。' : '填写账号名称、地域和腾讯云访问凭据，提交后将调用真实接口创建账号。' }}
+              {{
+                isEditMode
+                  ? '修改账号信息，或在子账号页维护快捷登录所需的子账号资料。'
+                  : '填写账号名称、地域和腾讯云访问凭据，提交后将调用真实接口创建账号。'
+              }}
             </DialogDescription>
           </DialogHeader>
 
-          <form class="grid gap-4" @submit.prevent="handleSubmit">
+          <Tabs v-if="isEditMode" v-model="dialogTab" class="grid gap-4">
+            <TabsList class="grid h-auto w-full grid-cols-2">
+              <TabsTrigger value="account" class="h-9">
+                账号信息
+              </TabsTrigger>
+              <TabsTrigger value="subaccount" class="h-9">
+                子账号
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="account" class="mt-0">
+              <form class="grid gap-4" @submit.prevent="handleSubmit">
+                <BaseInput
+                  v-model="form.name"
+                  label="账号名称"
+                  placeholder="如：生产主账号"
+                  autocomplete="organization"
+                />
+                <BaseInput
+                  v-model="form.region"
+                  label="地域"
+                  placeholder="如：ap-guangzhou"
+                  autocomplete="off"
+                />
+                <BaseSelect
+                  v-model="form.status"
+                  label="账号状态"
+                  :options="ACCOUNT_STATUS_OPTIONS"
+                  placeholder="请选择账号状态"
+                />
+
+                <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
+
+                <DialogFooter class="pt-2 sm:justify-between">
+                  <div class="flex min-h-9 items-center gap-2">
+                    <Button
+                      v-if="!deleteConfirming"
+                      type="button"
+                      variant="destructive"
+                      :disabled="dialogBusy"
+                      @click="deleteConfirming = true"
+                    >
+                      删除
+                    </Button>
+                    <template v-else>
+                      <span class="text-sm text-muted-foreground">确认删除该云账号？</span>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        :disabled="dialogBusy"
+                        @click="handleDeleteAccount"
+                      >
+                        <LoaderCircle v-if="deleting" class="mr-1 h-4 w-4 animate-spin" />
+                        确认删除
+                      </Button>
+                    </template>
+                  </div>
+
+                  <div class="flex items-center justify-end gap-2">
+                    <Button type="button" variant="outline" :disabled="dialogBusy" @click="handleCancelDialog">
+                      取消
+                    </Button>
+                    <BaseButton
+                      label="保存修改"
+                      type="submit"
+                      :loading="submitting"
+                      loading-text="保存中"
+                    />
+                  </div>
+                </DialogFooter>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="subaccount" class="mt-0">
+              <form class="grid gap-4" @submit.prevent="handleCreateSubAccount">
+                <div class="rounded-xl border border-border bg-muted/30 px-4 py-3">
+                  <p class="text-sm font-medium text-foreground">当前云账号</p>
+                  <p class="mt-1 text-sm text-muted-foreground">
+                    {{ selectedAccount?.name }}
+                    <span v-if="selectedAccount?.uin"> · UIN {{ selectedAccount.uin }}</span>
+                  </p>
+                </div>
+
+                <Alert v-if="subAccountError" variant="destructive">
+                  <AlertTitle>子账号操作失败</AlertTitle>
+                  <AlertDescription>{{ subAccountError }}</AlertDescription>
+                </Alert>
+
+                <section class="grid gap-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <p class="text-sm font-medium text-foreground">已有子账号</p>
+                      <p class="text-sm text-muted-foreground">这些账号将用于后续快捷登录。</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      class="h-8 px-3 text-[13px]"
+                      :disabled="subAccountsLoading || subAccountSubmitting || Boolean(deletingSubAccountId)"
+                      @click="loadDialogSubAccounts"
+                    >
+                      <LoaderCircle v-if="subAccountsLoading" class="mr-1 h-4 w-4 animate-spin" />
+                      刷新
+                    </Button>
+                  </div>
+
+                  <div class="grid max-h-64 gap-2 overflow-y-auto pr-1">
+                    <div
+                      v-if="subAccountsLoading"
+                      class="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground"
+                    >
+                      子账号加载中...
+                    </div>
+                    <div
+                      v-else-if="selectedAccountSubAccounts.length === 0"
+                      class="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground"
+                    >
+                      当前云账号下暂无子账号，新增后可用于快捷登录。
+                    </div>
+                    <template v-else>
+                      <div
+                        v-for="subAccount in selectedAccountSubAccounts"
+                        :key="subAccount.id"
+                        class="flex items-start justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3"
+                      >
+                        <div class="min-w-0">
+                          <p class="truncate text-sm font-medium text-foreground">
+                            {{ subAccount.displayName }}
+                          </p>
+                          <p class="mt-1 text-sm text-muted-foreground">
+                            子账号名 {{ subAccount.name }}
+                            <span v-if="subAccount.uin"> · UIN {{ subAccount.uin }}</span>
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          class="h-8 shrink-0 px-3 text-[13px] text-destructive hover:text-destructive"
+                          :disabled="subAccountSubmitting || Boolean(deletingSubAccountId)"
+                          @click="handleDeleteSubAccount(subAccount)"
+                        >
+                          <LoaderCircle
+                            v-if="deletingSubAccountId === subAccount.id"
+                            class="mr-1 h-4 w-4 animate-spin"
+                          />
+                          删除
+                        </Button>
+                      </div>
+                    </template>
+                  </div>
+                </section>
+
+                <section class="grid gap-4">
+                  <div>
+                    <p class="text-sm font-medium text-foreground">新增子账号</p>
+                    <p class="mt-1 text-sm text-muted-foreground">保存子账号用户名、UIN 和密码，供快捷登录使用。</p>
+                  </div>
+
+                  <BaseInput
+                    v-model="subAccountForm.name"
+                    label="子账号名称"
+                    placeholder="如：ops-admin"
+                    autocomplete="username"
+                  />
+                  <BaseInput
+                    v-model="subAccountForm.uin"
+                    label="子账号 UIN"
+                    placeholder="不填则按名称维护"
+                    autocomplete="off"
+                  />
+                  <BaseInput
+                    v-model="subAccountForm.password"
+                    label="子账号密码"
+                    type="password"
+                    placeholder="请输入子账号密码"
+                    autocomplete="current-password"
+                  />
+
+                  <p v-if="subAccountFormError" class="text-sm text-destructive">{{ subAccountFormError }}</p>
+                </section>
+
+                <DialogFooter class="pt-2">
+                  <div class="flex items-center justify-end gap-2">
+                    <Button type="button" variant="outline" :disabled="dialogBusy" @click="handleCancelDialog">
+                      关闭
+                    </Button>
+                    <BaseButton
+                      label="新增子账号"
+                      type="submit"
+                      :loading="subAccountSubmitting"
+                      loading-text="提交中"
+                    />
+                  </div>
+                </DialogFooter>
+              </form>
+            </TabsContent>
+          </Tabs>
+
+          <form v-else class="grid gap-4" @submit.prevent="handleSubmit">
             <BaseInput
               v-model="form.name"
               label="账号名称"
@@ -253,68 +455,33 @@
               placeholder="如：ap-guangzhou"
               autocomplete="off"
             />
-
-            <template v-if="isEditMode">
-              <BaseSelect
-                v-model="form.status"
-                label="账号状态"
-                :options="ACCOUNT_STATUS_OPTIONS"
-                placeholder="请选择账号状态"
-              />
-            </template>
-            <template v-else>
-              <BaseInput
-                v-model="form.secretId"
-                label="SecretId"
-                placeholder="请输入腾讯云 SecretId"
-                autocomplete="off"
-              />
-              <BaseInput
-                v-model="form.secretKey"
-                label="SecretKey"
-                placeholder="请输入腾讯云 SecretKey"
-                autocomplete="off"
-              />
-            </template>
+            <BaseInput
+              v-model="form.secretId"
+              label="SecretId"
+              placeholder="请输入腾讯云 SecretId"
+              autocomplete="off"
+            />
+            <BaseInput
+              v-model="form.secretKey"
+              label="SecretKey"
+              placeholder="请输入腾讯云 SecretKey"
+              autocomplete="off"
+            />
 
             <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
 
             <DialogFooter class="pt-2 sm:justify-between">
-              <div class="flex min-h-9 items-center gap-2">
-                <template v-if="isEditMode">
-                  <Button
-                    v-if="!deleteConfirming"
-                    type="button"
-                    variant="destructive"
-                    :disabled="submitting || deleting"
-                    @click="deleteConfirming = true"
-                  >
-                    删除
-                  </Button>
-                  <template v-else>
-                    <span class="text-sm text-muted-foreground">确认删除该云账号？</span>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      :disabled="submitting || deleting"
-                      @click="handleDeleteAccount"
-                    >
-                      <LoaderCircle v-if="deleting" class="mr-1 h-4 w-4 animate-spin" />
-                      确认删除
-                    </Button>
-                  </template>
-                </template>
-              </div>
+              <div class="flex min-h-9 items-center gap-2" />
 
               <div class="flex items-center justify-end gap-2">
                 <Button type="button" variant="outline" :disabled="submitting || deleting" @click="handleCancelDialog">
                   取消
                 </Button>
                 <BaseButton
-                  :label="isEditMode ? '保存修改' : '确认添加'"
+                  label="确认添加"
                   type="submit"
                   :loading="submitting"
-                  :loading-text="isEditMode ? '保存中' : '添加中'"
+                  loading-text="添加中"
                 />
               </div>
             </DialogFooter>
@@ -351,16 +518,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipWrap } from '@/components/ui/tooltip';
 import { useHorizontalOverflowMask } from '@/composables/useHorizontalOverflowMask';
 import { useSlidingTabIndicator } from '@/composables/useSlidingTabIndicator';
-import type { CloudAccount } from '@/services/types';
 import { ACCOUNT_STATUS_OPTIONS, formatAccountStatus, isValidAccountStatus } from '@/services/accounts';
+import { createSubAccount, deleteSubAccount, getSubAccounts } from '@/services/subaccounts';
+import type { CloudAccount, SubAccount } from '@/services/types';
 import { useAccountsStore } from '@/store/accounts';
 import { useAppStore } from '@/store/app';
 import { formatDateTimeWithMinutes } from '@/utils/time';
 
 type DialogMode = 'create' | 'edit';
+type DialogTab = 'account' | 'subaccount';
 type AccountCategoryTab = 'tencent' | 'filing' | 'bt' | 'review' | 'certificate';
 type AccountDetailField = {
   label: string;
@@ -379,10 +549,17 @@ const submitting = ref(false);
 const deleting = ref(false);
 const dialogOpen = ref(false);
 const dialogMode = ref<DialogMode>('create');
+const dialogTab = ref<DialogTab>('account');
 const selectedAccount = ref<CloudAccount | null>(null);
 const deleteConfirming = ref(false);
 const expandedAccountIds = ref<string[]>([]);
 const activeCategoryTab = ref<AccountCategoryTab>('tencent');
+const subAccounts = ref<SubAccount[]>([]);
+const subAccountsLoading = ref(false);
+const subAccountError = ref('');
+const subAccountFormError = ref('');
+const subAccountSubmitting = ref(false);
+const deletingSubAccountId = ref('');
 const form = reactive({
   name: '',
   region: 'ap-guangzhou',
@@ -390,8 +567,16 @@ const form = reactive({
   secretKey: '',
   status: '1',
 });
+const subAccountForm = reactive({
+  name: '',
+  uin: '',
+  password: '',
+});
 const rows = computed(() => accountsStore.accountList);
 const isEditMode = computed(() => dialogMode.value === 'edit');
+const dialogBusy = computed(
+  () => submitting.value || deleting.value || subAccountSubmitting.value || Boolean(deletingSubAccountId.value),
+);
 const accountStatusBadgeMap: Record<string, { tone: AccountStatusBadgeTone; icon: AccountStatusBadgeIcon }> = {
   正常: { tone: 'green', icon: 'check' },
   异常: { tone: 'red', icon: 'alert' },
@@ -406,6 +591,14 @@ const accountCategoryTabs = [
 const activeCategoryTabLabel = computed(
   () => accountCategoryTabs.find((tab) => tab.value === activeCategoryTab.value)?.label ?? '当前',
 );
+const selectedAccountSubAccounts = computed(() => {
+  const account = selectedAccount.value;
+  if (!account) {
+    return [];
+  }
+
+  return subAccounts.value.filter((item) => isSubAccountOwnedByAccount(item, account));
+});
 const {
   indicatorStyle: accountCategoryIndicatorStyle,
   setTabRef: setAccountCategoryTabRef,
@@ -436,7 +629,21 @@ async function reloadAccounts() {
   }
 }
 
+async function loadDialogSubAccounts() {
+  subAccountsLoading.value = true;
+  subAccountError.value = '';
+
+  try {
+    subAccounts.value = await getSubAccounts();
+  } catch (error) {
+    subAccountError.value = error instanceof Error ? error.message : '拉取子账号失败';
+  } finally {
+    subAccountsLoading.value = false;
+  }
+}
+
 function openCreateDialog() {
+  dialogTab.value = 'account';
   dialogMode.value = 'create';
   selectedAccount.value = null;
   dialogOpen.value = true;
@@ -444,16 +651,21 @@ function openCreateDialog() {
 }
 
 function openEditDialog(account: CloudAccount) {
+  dialogTab.value = 'account';
   dialogMode.value = 'edit';
   selectedAccount.value = account;
   dialogOpen.value = true;
   formError.value = '';
   deleteConfirming.value = false;
+  subAccounts.value = [];
+  subAccountError.value = '';
   form.name = account.name;
   form.region = account.region;
   form.secretId = '';
   form.secretKey = '';
   form.status = isValidAccountStatus(account.statusCode) ? String(account.statusCode) : '1';
+  resetSubAccountForm();
+  void loadDialogSubAccounts();
 }
 
 function isAccountExpanded(accountId: string) {
@@ -467,11 +679,11 @@ function toggleAccountDetails(accountId: string) {
 }
 
 function handleQuickLogin(account: CloudAccount) {
-  appStore.setNotice(`${account.name} 的快捷登录功能暂未接入`, 'info');
+  appStore.setNotice(`${account.name} 的快捷登录将使用子账号信息，请先在编辑弹窗的子账号页维护`, 'info');
 }
 
 function handleDialogOpenChange(open: boolean) {
-  if (submitting.value || deleting.value) {
+  if (dialogBusy.value) {
     return;
   }
 
@@ -482,7 +694,7 @@ function handleDialogOpenChange(open: boolean) {
 }
 
 function handleCancelDialog() {
-  if (submitting.value || deleting.value) {
+  if (dialogBusy.value) {
     return;
   }
 
@@ -500,9 +712,23 @@ function resetForm() {
   form.status = '1';
 }
 
+function resetSubAccountForm() {
+  subAccountFormError.value = '';
+  subAccountForm.name = '';
+  subAccountForm.uin = '';
+  subAccountForm.password = '';
+}
+
 function resetDialogState() {
+  dialogTab.value = 'account';
   selectedAccount.value = null;
   dialogMode.value = 'create';
+  subAccounts.value = [];
+  subAccountsLoading.value = false;
+  subAccountError.value = '';
+  subAccountSubmitting.value = false;
+  deletingSubAccountId.value = '';
+  resetSubAccountForm();
   resetForm();
 }
 
@@ -518,6 +744,35 @@ function parseStatus(value: string) {
   }
 
   return isValidAccountStatus(parsed) ? parsed : null;
+}
+
+function parseOptionalInteger(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function isSubAccountOwnedByAccount(subAccount: SubAccount, account: CloudAccount) {
+  const accountUuid = account.uuid?.trim();
+  const accountUin = account.uin?.trim();
+  const accountName = account.name.trim();
+  const subAccountUuid = subAccount.tencentAccountUuid?.trim();
+  const subAccountUin = subAccount.tencentAccountUin?.trim();
+  const subAccountName = subAccount.tencentAccountName.trim();
+
+  return (
+    (accountUuid && subAccountUuid && accountUuid === subAccountUuid) ||
+    (accountUin && subAccountUin && accountUin === subAccountUin) ||
+    (accountName && subAccountName && accountName === subAccountName)
+  );
 }
 
 async function handleSubmit() {
@@ -591,6 +846,89 @@ async function handleDeleteAccount() {
     formError.value = error instanceof Error ? error.message : '删除云账号失败';
   } finally {
     deleting.value = false;
+  }
+}
+
+async function handleCreateSubAccount() {
+  subAccountFormError.value = '';
+
+  const account = selectedAccount.value;
+  if (!account) {
+    subAccountFormError.value = '当前未选中云账号';
+    return;
+  }
+
+  const subAccountName = subAccountForm.name.trim();
+  const password = subAccountForm.password.trim();
+  const subAccountUin = parseOptionalInteger(subAccountForm.uin);
+  const tencentAccountUin = parseOptionalInteger(account.uin ?? '');
+
+  if (!subAccountName) {
+    subAccountFormError.value = '子账号名称不能为空';
+    return;
+  }
+  if (!password) {
+    subAccountFormError.value = '子账号密码不能为空';
+    return;
+  }
+  if (subAccountUin === null) {
+    subAccountFormError.value = '子账号 UIN 必须是整数';
+    return;
+  }
+  if (tencentAccountUin === null) {
+    subAccountFormError.value = '当前云账号 UIN 不合法';
+    return;
+  }
+
+  subAccountSubmitting.value = true;
+  try {
+    await createSubAccount({
+      password,
+      subAccountName,
+      subAccountUin,
+      tencentAccountName: account.name,
+      tencentAccountUin,
+      tencentAccountUuid: account.uuid,
+    });
+    appStore.setNotice('子账号已新增', 'info');
+    resetSubAccountForm();
+    await loadDialogSubAccounts();
+  } catch (error) {
+    subAccountFormError.value = error instanceof Error ? error.message : '新增子账号失败';
+  } finally {
+    subAccountSubmitting.value = false;
+  }
+}
+
+async function handleDeleteSubAccount(subAccount: SubAccount) {
+  if (typeof subAccount.recordId !== 'number') {
+    subAccountError.value = '当前子账号缺少可删除的 Id';
+    return;
+  }
+
+  const tencentAccountUin = parseOptionalInteger(subAccount.tencentAccountUin ?? '');
+  if (tencentAccountUin === null) {
+    subAccountError.value = '当前子账号所属云账号 UIN 不合法';
+    return;
+  }
+
+  deletingSubAccountId.value = subAccount.id;
+  subAccountError.value = '';
+  try {
+    await deleteSubAccount({
+      id: subAccount.recordId,
+      subAccountName: subAccount.name,
+      subAccountUin: parseOptionalInteger(subAccount.uin ?? '') ?? undefined,
+      tencentAccountName: subAccount.tencentAccountName,
+      tencentAccountUin,
+      tencentAccountUuid: subAccount.tencentAccountUuid,
+    });
+    appStore.setNotice('子账号已删除', 'info');
+    await loadDialogSubAccounts();
+  } catch (error) {
+    subAccountError.value = error instanceof Error ? error.message : '删除子账号失败';
+  } finally {
+    deletingSubAccountId.value = '';
   }
 }
 

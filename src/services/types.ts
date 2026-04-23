@@ -342,13 +342,25 @@ export interface DomainDashboardInstanceRow {
   AccountUuid?: string;
   AutoRenew?: number;
   BuyStatus?: string;
+  CertBeginTime?: string;
+  CertEndTime?: string;
+  CertificateId?: string;
+  CertificateName?: string;
+  CertificateType?: string;
   CodeTld?: string;
   CreationDate?: string;
+  Deployable?: boolean;
+  Domain?: string;
   DomainId?: string;
   DomainName?: string;
   ExpirationDate?: string;
   IsPremium?: boolean;
+  ProductZhName?: string;
+  Status?: number;
+  StatusName?: string;
+  SubjectAltName?: string[];
   Tld?: string;
+  ValidityPeriod?: string;
 }
 
 export interface DomainDashboardListResponse {
@@ -360,12 +372,24 @@ export interface DomainDashboardInstanceItem {
   rowId: string;
   accountId: string;
   account: string;
+  domain: string;
   domainId: string;
   domainName: string;
   buyStatus: string;
   buyStatusCode: string;
   autoRenew: string;
   autoRenewCode: string;
+  certificateId: string;
+  certificateName: string;
+  certificateType: string;
+  certificateStatus: string;
+  certificateStatusCode: string;
+  productZhName: string;
+  subjectAltName: string[];
+  validityPeriod: string;
+  deployable: string;
+  certBeginTime: string;
+  certEndTime: string;
   tld: string;
   codeTld: string;
   isPremium: string;

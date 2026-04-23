@@ -75,6 +75,37 @@ function readNumber(record: Record<string, unknown>, keys: string[]) {
   return undefined;
 }
 
+function readBoolean(record: Record<string, unknown>, keys: string[]) {
+  const value = getField(record, keys);
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true;
+    }
+
+    if (value === 0) {
+      return false;
+    }
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') {
+      return true;
+    }
+
+    if (normalized === 'false' || normalized === '0') {
+      return false;
+    }
+  }
+
+  return undefined;
+}
+
 function readStringArray(record: Record<string, unknown>, keys: string[]) {
   const value = getField(record, keys);
   if (!Array.isArray(value)) {
@@ -313,6 +344,18 @@ function normalizeDomainAutoRenew(autoRenew?: number | string): DomainDashboardI
   return DOMAIN_AUTO_RENEW_MAP[String(autoRenew)] ?? String(autoRenew);
 }
 
+function normalizeBooleanLabel(
+  value: boolean | undefined,
+  trueLabel = '是',
+  falseLabel = '否',
+): string {
+  if (value === undefined) {
+    return '--';
+  }
+
+  return value ? trueLabel : falseLabel;
+}
+
 export function translateDomainDashboardList(
   response: unknown,
 ): DomainDashboardListResult {
@@ -331,21 +374,38 @@ export function translateDomainDashboardList(
     const accountName = readString(instance, ['AccountName', 'accountName']);
     const buyStatus = readString(instance, ['BuyStatus', 'buyStatus']) || '--';
     const autoRenewCode = String(readNumber(instance, ['AutoRenew', 'autoRenew']) ?? '');
-    const isPremium = getField(instance, ['IsPremium', 'isPremium']) === true;
+    const isPremium = readBoolean(instance, ['IsPremium', 'isPremium']);
+    const deployable = readBoolean(instance, ['Deployable', 'deployable']);
+    const certificateStatusCode = String(readNumber(instance, ['Status', 'status']) ?? '');
+    const certificateStatus =
+      readString(instance, ['StatusName', 'statusName']) ||
+      (certificateStatusCode ? certificateStatusCode : '--');
 
     return {
       rowId: `${accountId || 'unknown'}:${domainId || domainName || index}`,
       accountId,
       account: accountName || accountId || '--',
+      domain: readString(instance, ['Domain', 'domain']) || '--',
       domainId,
       domainName,
       buyStatus,
       buyStatusCode: buyStatus,
       autoRenew: normalizeDomainAutoRenew(autoRenewCode),
       autoRenewCode,
+      certificateId: readString(instance, ['CertificateId', 'certificateId']) || '--',
+      certificateName: readString(instance, ['CertificateName', 'certificateName']) || '--',
+      certificateType: readString(instance, ['CertificateType', 'certificateType']) || '--',
+      certificateStatus,
+      certificateStatusCode,
+      productZhName: readString(instance, ['ProductZhName', 'productZhName']) || '--',
+      subjectAltName: readStringArray(instance, ['SubjectAltName', 'subjectAltName']),
+      validityPeriod: readString(instance, ['ValidityPeriod', 'validityPeriod']) || '--',
+      deployable: normalizeBooleanLabel(deployable, '可部署', '不可部署'),
+      certBeginTime: readString(instance, ['CertBeginTime', 'certBeginTime']),
+      certEndTime: readString(instance, ['CertEndTime', 'certEndTime']),
       tld: readString(instance, ['Tld', 'tld']) || '--',
       codeTld: readString(instance, ['CodeTld', 'codeTld']) || '--',
-      isPremium: isPremium ? '是' : '否',
+      isPremium: normalizeBooleanLabel(isPremium),
       creationDate: readString(instance, ['CreationDate', 'creationDate']),
       expirationDate: readString(instance, ['ExpirationDate', 'expirationDate']),
     };

@@ -151,7 +151,7 @@
               <Input
                 v-model="domainSearchKeyword"
                 class="h-9 min-w-0 flex-1"
-                placeholder="搜索域名、域名 ID、账号、后缀"
+                placeholder="搜索域名、证书、域名 ID、账号、后缀"
               />
               <div class="w-26 shrink-0 sm:w-36">
                 <BaseSelect
@@ -344,6 +344,16 @@
                     {{ row.autoRenew }}
                   </span>
                 </template>
+                <template #cell-certificateStatus="{ row }">
+                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
+                    {{ row.certificateStatus }}
+                  </span>
+                </template>
+                <template #cell-deployable="{ row }">
+                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
+                    {{ row.deployable }}
+                  </span>
+                </template>
                 <template #cell-expirationDate="{ row }">
                   <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
                     <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
@@ -355,6 +365,23 @@
                       :class="getExpirationInfo(row).textClass"
                     >
                       {{ getExpirationInfo(row).relativeText }}
+                    </p>
+                  </div>
+                </template>
+                <template #cell-certBeginTime="{ row }">
+                  <span>{{ formatDateTimeWithMinutes(String(row.certBeginTime)) }}</span>
+                </template>
+                <template #cell-certEndTime="{ row }">
+                  <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
+                    <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
+                      {{ getCertificateExpirationInfo(row).dateText }}
+                    </p>
+                    <p
+                      v-if="getCertificateExpirationInfo(row).relativeText"
+                      class="shrink-0 text-xs leading-4"
+                      :class="getCertificateExpirationInfo(row).textClass"
+                    >
+                      {{ getCertificateExpirationInfo(row).relativeText }}
                     </p>
                   </div>
                 </template>
@@ -528,8 +555,16 @@ const domainColumns: TableColumn[] = [
   { key: 'expirationDate', label: '到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
   { key: 'buyStatus', label: '购买状态' },
   { key: 'autoRenew', label: '自动续费' },
-  { key: 'tld', label: '后缀' },
-  { key: 'codeTld', label: '编码后后缀', tone: 'muted' },
+  { key: 'certificateName', label: '证书名称' },
+  { key: 'certificateStatus', label: '证书状态' },
+  { key: 'certEndTime', label: '证书到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
+  { key: 'productZhName', label: '证书签发方', tone: 'muted' },
+  { key: 'certificateType', label: '证书类型', tone: 'muted' },
+  { key: 'deployable', label: '是否可部署' },
+  { key: 'domain', label: '主绑定域名', tone: 'muted' },
+  { key: 'subjectAltName', label: '其他绑定域名', tone: 'muted', cellRenderer: { kind: 'array', separator: '、' } },
+  { key: 'validityPeriod', label: '证书有效期（月）', tone: 'muted' },
+  { key: 'certBeginTime', label: '证书生效时间', tone: 'muted' },
   { key: 'isPremium', label: '溢价域名' },
   { key: 'creationDate', label: '注册时间', tone: 'muted' },
 ];
@@ -644,6 +679,7 @@ const domainDisplayRows = computed(() =>
   domainRows.value.map((row) => ({
     ...row,
     expirationInfo: buildExpirationInfo('', row.expirationDate),
+    certificateExpirationInfo: buildExpirationInfo('', row.certEndTime),
   })),
 );
 
@@ -722,11 +758,24 @@ const filteredDomainRows = computed(() => {
         row.codeTld,
         row.buyStatus,
         row.autoRenew,
+        row.domain,
+        row.certificateId,
+        row.certificateName,
+        row.certificateType,
+        row.certificateStatus,
+        row.productZhName,
+        row.validityPeriod,
+        row.deployable,
         row.isPremium,
         row.creationDate,
         row.expirationDate,
+        row.certBeginTime,
+        row.certEndTime,
         row.expirationInfo.dateText,
         row.expirationInfo.relativeText,
+        row.certificateExpirationInfo.dateText,
+        row.certificateExpirationInfo.relativeText,
+        row.subjectAltName.join(' '),
       ]
         .some((value) => value.toLowerCase().includes(keyword));
 
@@ -926,6 +975,11 @@ function buildExpirationInfo(chargeType: string, expiredTime: string): Expiratio
 
 function getExpirationInfo(row: unknown): ExpirationInfo {
   const expirationInfo = (row as { expirationInfo?: ExpirationInfo } | null)?.expirationInfo;
+  return expirationInfo ?? DEFAULT_EXPIRATION_INFO;
+}
+
+function getCertificateExpirationInfo(row: unknown): ExpirationInfo {
+  const expirationInfo = (row as { certificateExpirationInfo?: ExpirationInfo } | null)?.certificateExpirationInfo;
   return expirationInfo ?? DEFAULT_EXPIRATION_INFO;
 }
 

@@ -1850,7 +1850,7 @@ onBeforeUnmount(() => {
 
                           <div
                             v-else-if="column.cellRenderer?.kind === 'array'"
-                            class="flex flex-wrap items-center gap-1"
+                            class="inline-flex w-max max-w-none items-center gap-1 whitespace-nowrap"
                           >
                             <span
                               v-for="(item, itemIndex) in getArrayValue(getColumnValue(row, column.key))"
@@ -1863,7 +1863,7 @@ onBeforeUnmount(() => {
 
                           <div
                             v-else-if="column.cellRenderer?.kind === 'tags'"
-                            class="flex flex-wrap items-center gap-1.5"
+                            class="inline-flex w-max max-w-none items-center gap-1.5 whitespace-nowrap"
                           >
                             <span
                               v-for="(item, itemIndex) in getArrayValue(getColumnValue(row, column.key))"

@@ -1,7 +1,7 @@
 <template>
   <section class="-mt-8 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4">
     <header
-      class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-backdrop-filter:bg-background/80"
       :style="{ top: 'var(--table-page-sticky-top)' }"
     >
       <div class="flex flex-col gap-1.5 lg:flex-row lg:flex-nowrap lg:items-baseline lg:gap-2">
@@ -54,11 +54,11 @@
 
           <div
             v-if="accountTabsOverflowLeft"
-            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background via-background/88 to-transparent"
+            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-linear-to-r from-background via-background/88 to-transparent"
           />
           <div
             v-if="accountTabsOverflowRight"
-            class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background via-background/92 to-transparent"
+            class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-linear-to-l from-background via-background/92 to-transparent"
           />
         </div>
 
@@ -117,7 +117,7 @@
                 class="h-9 min-w-0 flex-1"
                 placeholder="搜索实例 ID、名称、IP、配置、可用区、备注"
               />
-              <div class="w-[5.5rem] shrink-0 sm:w-36">
+              <div class="w-22 shrink-0 sm:w-36">
                 <BaseSelect
                   v-model="cvmStatusFilter"
                   :options="cvmStatusOptions"
@@ -132,13 +132,13 @@
                 class="h-9 min-w-0 flex-1"
                 placeholder="搜索实例 ID、名称、类型、IP、可用区"
               />
-              <div class="w-[5.5rem] shrink-0 sm:w-32">
+              <div class="w-22 shrink-0 sm:w-32">
                 <BaseSelect
                   v-model="databaseStatusFilter"
                   :options="databaseStatusOptions"
                 />
               </div>
-              <div class="w-[5.5rem] shrink-0 sm:w-32">
+              <div class="w-22 shrink-0 sm:w-32">
                 <BaseSelect
                   v-model="databaseTypeFilter"
                   :options="databaseTypeOptions"
@@ -153,13 +153,13 @@
                 class="h-9 min-w-0 flex-1"
                 placeholder="搜索域名、域名 ID、账号、后缀"
               />
-              <div class="w-[6.5rem] shrink-0 sm:w-36">
+              <div class="w-26 shrink-0 sm:w-36">
                 <BaseSelect
                   v-model="domainStatusFilter"
                   :options="domainStatusOptions"
                 />
               </div>
-              <div class="w-[6.5rem] shrink-0 sm:w-32">
+              <div class="w-26 shrink-0 sm:w-32">
                 <BaseSelect
                   v-model="domainAutoRenewFilter"
                   :options="domainAutoRenewOptions"

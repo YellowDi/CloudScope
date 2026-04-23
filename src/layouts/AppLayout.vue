@@ -2,7 +2,7 @@
   <div class="min-h-screen bg-background" :style="layoutStyle">
     <header
       ref="headerRef"
-      class="sticky top-0 z-20 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      class="sticky top-0 z-20 bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80"
     >
       <div class="mx-auto flex min-h-16 w-full max-w-6xl items-center gap-3 py-3">
         <div class="flex min-w-0 shrink-0 items-center gap-3">

@@ -1,7 +1,7 @@
 <template>
   <section class="-mt-8 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6">
     <header
-      class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+      class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-backdrop-filter:bg-background/80"
       :style="{ top: 'var(--table-page-sticky-top)' }"
     >
       <div class="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-2">
@@ -50,11 +50,11 @@
 
           <div
             v-if="accountCategoryTabsOverflowLeft"
-            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background via-background/88 to-transparent"
+            class="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-linear-to-r from-background via-background/88 to-transparent"
           />
           <div
             v-if="accountCategoryTabsOverflowRight"
-            class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-background via-background/92 to-transparent"
+            class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-linear-to-l from-background via-background/92 to-transparent"
           />
         </div>
 
@@ -97,7 +97,7 @@
           description="后端当前没有返回已添加的腾讯云账号。"
         />
 
-        <div v-else class="columns-1 [column-gap:1rem] md:columns-2 lg:columns-3">
+        <div v-else class="columns-1 gap-x-4 md:columns-2 lg:columns-3">
           <Card
             v-for="account in rows"
             :key="account.id"

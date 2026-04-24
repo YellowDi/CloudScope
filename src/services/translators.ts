@@ -28,9 +28,44 @@ const CVM_STATUS_MAP: Record<string, string> = {
 };
 
 const DB_STATUS_MAP: Record<string, string> = {
+  '1': '运行中',
   RUNNING: '运行中',
   PENDING: '创建中',
   ISOLATED: '隔离中',
+  applying: '申请中',
+  init: '待初始化',
+  initing: '初始化中',
+  running: '运行中',
+  'limited run': '受限运行',
+  limitedrun: '受限运行',
+  isolating: '隔离中',
+  isolated: '已隔离',
+  disisolating: '解隔离中',
+  recycling: '回收中',
+  recycled: '已回收',
+  'job running': '任务执行中',
+  jobrunning: '任务执行中',
+  offline: '下线',
+  migrating: '迁移中',
+  expanding: '变配中',
+  waitSwitch: '等待切换',
+  waitswitch: '等待切换',
+  switching: '切换中',
+  readonly: '只读',
+  restarting: '重启中',
+  'network changing': '网络变更中',
+  networkchanging: '网络变更中',
+  upgrading: '内核版本升级中',
+  'audit-switching': '审计状态变更中',
+  'primary-switching': '主备切换中',
+  offlining: '下线中',
+  'deployment changing': '可用区变更中',
+  deploymentchanging: '可用区变更中',
+  cloning: '恢复数据中',
+  'parameter modifying': '参数修改中',
+  parametermodifying: '参数修改中',
+  'log-switching': '日志状态变更中',
+  restoring: '恢复中',
 };
 
 const CHARGE_TYPE_MAP: Record<string, string> = {
@@ -43,6 +78,54 @@ const DOMAIN_AUTO_RENEW_MAP: Record<string, string> = {
   '1': '已开启',
   '2': '已关闭',
 };
+
+const DOMAIN_BUY_STATUS_MAP: Record<string, string> = {
+  ok: '正常',
+  AboutToExpire: '即将到期',
+  RegisterPending: '注册中',
+  RegisterDoing: '注册中',
+  RegisterFailed: '注册失败',
+  RenewPending: '续费期',
+  RenewDoing: '续费中',
+  RedemptionPending: '赎回期',
+  RedemptionDoing: '赎回中',
+  TransferPending: '转入中',
+  TransferTransing: '转入中',
+  TransferFailed: '转入失败',
+};
+
+const CERTIFICATE_STATUS_MAP: Record<string, string> = {
+  '0': '审核中',
+  '1': '已通过',
+  '2': '审核失败',
+  '3': '已过期',
+  '4': '自动添加 DNS 记录',
+  '5': '企业证书待提交资料',
+  '6': '订单取消中',
+  '7': '已取消',
+  '8': '已提交资料，待上传确认函',
+  '9': '证书吊销中',
+  '10': '已吊销',
+  '11': '重颁发中',
+  '12': '待上传吊销确认函',
+  '13': '免费证书待提交资料',
+  '14': '证书已退款',
+  '15': '证书迁移中',
+};
+
+function normalizeStatusKey(status?: string): string {
+  return status?.trim() ?? '';
+}
+
+function getStatusLabel(status: string, map: Record<string, string>): string {
+  const normalized = normalizeStatusKey(status);
+  return map[normalized] ?? map[normalized.toLowerCase()] ?? normalized;
+}
+
+function isRunningStatus(statusCode: string): boolean {
+  const normalized = normalizeStatusKey(statusCode).toLowerCase();
+  return normalized === 'running' || normalized === '1';
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -272,7 +355,7 @@ export function translateDatabaseList(response: TencentDbResponse): DatabaseList
     id: instance.InstanceId,
     name: instance.InstanceName,
     type: instance.DBInstanceType,
-    status: DB_STATUS_MAP[instance.Status] ?? instance.Status,
+    status: getStatusLabel(instance.Status, DB_STATUS_MAP),
     statusCode: instance.Status,
     address: `${instance.Vip}:${instance.Vport}`,
     storage: formatStorage(instance.Volume),
@@ -285,7 +368,7 @@ function normalizeDatabaseDashboardStatus(status?: string): DatabaseDashboardIns
     return '未知';
   }
 
-  return DB_STATUS_MAP[status] ?? status;
+  return getStatusLabel(status, DB_STATUS_MAP);
 }
 
 function normalizeDatabaseDashboardType(instance: Record<string, unknown>): string {
@@ -308,7 +391,9 @@ export function translateDatabaseDashboardList(
         : '');
     const id = readString(instance, ['InstanceID', 'instanceId', 'InstanceId', 'instanceID']) || '--';
     const accountName = readString(instance, ['AccountName', 'accountName']);
-    const statusCode = readString(instance, ['InstanceState', 'instanceState']) || 'UNKNOWN';
+    const statusCode =
+      readString(instance, ['InstanceState', 'instanceState', 'Status', 'status']) ||
+      String(readNumber(instance, ['InstanceState', 'instanceState', 'Status', 'status']) ?? 'UNKNOWN');
     const publicIp =
       readString(instance, ['PublicIpAddresses', 'publicIpAddresses', 'PublicIpAddress', 'publicIpAddress']) ||
       readStringArray(instance, ['PublicIpAddresses', 'publicIpAddresses'])[0] ||
@@ -350,6 +435,22 @@ function normalizeDomainAutoRenew(autoRenew?: number | string): DomainDashboardI
   return DOMAIN_AUTO_RENEW_MAP[String(autoRenew)] ?? String(autoRenew);
 }
 
+function normalizeDomainBuyStatus(status?: string): string {
+  if (!status) {
+    return '--';
+  }
+
+  return DOMAIN_BUY_STATUS_MAP[status] ?? DOMAIN_BUY_STATUS_MAP[status.toLowerCase()] ?? status;
+}
+
+function normalizeCertificateStatus(statusCode: string, statusName?: string): string {
+  if (statusName) {
+    return statusName;
+  }
+
+  return CERTIFICATE_STATUS_MAP[statusCode] ?? (statusCode || '--');
+}
+
 function normalizeBooleanLabel(
   value: boolean | undefined,
   trueLabel = '是',
@@ -378,14 +479,15 @@ export function translateDomainDashboardList(
     const domainId = readString(instance, ['DomainId', 'domainId']) || '--';
     const domainName = readString(instance, ['DomainName', 'domainName']) || '--';
     const accountName = readString(instance, ['AccountName', 'accountName']);
-    const buyStatus = readString(instance, ['BuyStatus', 'buyStatus']) || '--';
+    const buyStatusCode = readString(instance, ['BuyStatus', 'buyStatus']) || '';
     const autoRenewCode = String(readNumber(instance, ['AutoRenew', 'autoRenew']) ?? '');
     const isPremium = readBoolean(instance, ['IsPremium', 'isPremium']);
     const deployable = readBoolean(instance, ['Deployable', 'deployable']);
     const certificateStatusCode = String(readNumber(instance, ['Status', 'status']) ?? '');
-    const certificateStatus =
-      readString(instance, ['StatusName', 'statusName']) ||
-      (certificateStatusCode ? certificateStatusCode : '--');
+    const certificateStatus = normalizeCertificateStatus(
+      certificateStatusCode,
+      readString(instance, ['StatusName', 'statusName']),
+    );
 
     return {
       rowId: `${accountId || 'unknown'}:${domainId || domainName || index}`,
@@ -394,8 +496,8 @@ export function translateDomainDashboardList(
       domain: readString(instance, ['Domain', 'domain']) || '--',
       domainId,
       domainName,
-      buyStatus,
-      buyStatusCode: buyStatus,
+      buyStatus: normalizeDomainBuyStatus(buyStatusCode),
+      buyStatusCode,
       autoRenew: normalizeDomainAutoRenew(autoRenewCode),
       autoRenewCode,
       certificateId: readString(instance, ['CertificateId', 'certificateId']) || '--',
@@ -411,6 +513,7 @@ export function translateDomainDashboardList(
       certEndTime: readString(instance, ['CertEndTime', 'certEndTime']),
       tld: readString(instance, ['Tld', 'tld']) || '--',
       codeTld: readString(instance, ['CodeTld', 'codeTld']) || '--',
+      parentDomainName: readString(instance, ['ParentDomainName', 'parentDomainName']) || '--',
       isPremium: normalizeBooleanLabel(isPremium),
       creationDate: readString(instance, ['CreationDate', 'creationDate']),
       expirationDate: readString(instance, ['ExpirationDate', 'expirationDate']),
@@ -430,11 +533,11 @@ export function buildDashboardStats(
 ): DashboardStats {
   const runningCount =
     cvmList.filter((item) => item.statusCode === 'RUNNING').length +
-    databaseList.filter((item) => item.statusCode === 'RUNNING').length;
+    databaseList.filter((item) => isRunningStatus(item.statusCode)).length;
 
   const abnormalCount =
     cvmList.filter((item) => item.statusCode !== 'RUNNING').length +
-    databaseList.filter((item) => item.statusCode !== 'RUNNING').length;
+    databaseList.filter((item) => !isRunningStatus(item.statusCode)).length;
 
   const expiringSoonCount =
     cvmList.filter((item) => isExpiringSoon(item.expiredTime)).length +

@@ -340,17 +340,18 @@
                   </span>
                 </template>
                 <template #cell-autoRenew="{ row }">
-                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
+                  <span
+                    class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                    :class="getDomainAutoRenewBadgeClass(row)"
+                  >
                     {{ row.autoRenew }}
                   </span>
                 </template>
-                <template #cell-certificateStatus="{ row }">
-                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
-                    {{ row.certificateStatus }}
-                  </span>
-                </template>
                 <template #cell-deployable="{ row }">
-                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
+                  <span
+                    class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                    :class="getDomainDeployableBadgeClass(row)"
+                  >
                     {{ row.deployable }}
                   </span>
                 </template>
@@ -373,6 +374,12 @@
                 </template>
                 <template #cell-certEndTime="{ row }">
                   <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
+                    <span
+                      class="shrink-0 rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium"
+                      :class="getDomainCertificateStatusBadgeClass(row)"
+                    >
+                      {{ row.certificateStatus }}
+                    </span>
                     <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
                       {{ getCertificateExpirationInfo(row).dateText }}
                     </p>
@@ -555,7 +562,6 @@ const domainColumns: TableColumn[] = [
   { key: 'certEndTime', label: '证书到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
   { key: 'autoRenew', label: '自动续费' },
   { key: 'certificateName', label: '证书名称' },
-  { key: 'certificateStatus', label: '证书状态' },
   { key: 'deployable', label: '是否可部署' },
   { key: 'validityPeriod', label: '证书有效期（月）', tone: 'muted' },
   { key: 'certBeginTime', label: '证书生效时间', tone: 'muted' },
@@ -639,10 +645,13 @@ const databaseTypeOptions = computed(() => {
 });
 
 const domainStatusOptions = computed(() => {
-  const values = Array.from(new Set(domainRows.value.map((item) => item.buyStatus).filter(Boolean)));
+  const entries = Array.from(new Map(
+    domainRows.value.map((item) => [item.buyStatusCode, item.buyStatus] as const).filter(([value]) => value),
+  ).entries());
+
   return [
     { label: '全部状态', value: 'all' },
-    ...values.map((value) => ({ label: value, value })),
+    ...entries.map(([value, label]) => ({ label, value })),
   ];
 });
 
@@ -752,7 +761,9 @@ const filteredDomainRows = computed(() => {
         row.account,
         row.tld,
         row.codeTld,
+        row.parentDomainName,
         row.buyStatus,
+        row.buyStatusCode,
         row.autoRenew,
         row.domain,
         row.certificateId,
@@ -776,7 +787,7 @@ const filteredDomainRows = computed(() => {
         .some((value) => value.toLowerCase().includes(keyword));
 
     const matchesStatus =
-      domainStatusFilter.value === 'all' || row.buyStatus === domainStatusFilter.value;
+      domainStatusFilter.value === 'all' || row.buyStatusCode === domainStatusFilter.value;
 
     const matchesAutoRenew =
       domainAutoRenewFilter.value === 'all' || row.autoRenewCode === domainAutoRenewFilter.value;
@@ -982,6 +993,60 @@ function getCertificateExpirationInfo(row: unknown): ExpirationInfo {
 function getChargeTypeLabel(row: unknown): string {
   const chargeType = (row as { chargeType?: unknown } | null)?.chargeType;
   return typeof chargeType === 'string' && chargeType.trim() ? chargeType : '--';
+}
+
+type DomainBadgeTone = 'success' | 'warning' | 'error' | 'neutral';
+
+function getDomainBadgeClass(tone: DomainBadgeTone): string {
+  if (tone === 'success') {
+    return 'bg-emerald-500/12 text-emerald-700';
+  }
+  if (tone === 'warning') {
+    return 'bg-amber-500/14 text-amber-700';
+  }
+  if (tone === 'error') {
+    return 'bg-rose-500/12 text-rose-700';
+  }
+  return 'bg-muted text-muted-foreground';
+}
+
+function getDomainAutoRenewBadgeClass(row: unknown): string {
+  const autoRenewCode = String((row as { autoRenewCode?: unknown } | null)?.autoRenewCode ?? '');
+  if (autoRenewCode === '1') {
+    return getDomainBadgeClass('success');
+  }
+  if (autoRenewCode === '2') {
+    return getDomainBadgeClass('error');
+  }
+  if (autoRenewCode === '0') {
+    return getDomainBadgeClass('warning');
+  }
+  return getDomainBadgeClass('neutral');
+}
+
+function getDomainCertificateStatusBadgeClass(row: unknown): string {
+  const statusCode = String((row as { certificateStatusCode?: unknown } | null)?.certificateStatusCode ?? '');
+  if (statusCode === '1') {
+    return getDomainBadgeClass('success');
+  }
+  if (['0', '4', '5', '8', '11', '13', '15'].includes(statusCode)) {
+    return getDomainBadgeClass('warning');
+  }
+  if (['2', '3', '6', '7', '9', '10', '12', '14'].includes(statusCode)) {
+    return getDomainBadgeClass('error');
+  }
+  return getDomainBadgeClass('neutral');
+}
+
+function getDomainDeployableBadgeClass(row: unknown): string {
+  const deployable = String((row as { deployable?: unknown } | null)?.deployable ?? '');
+  if (deployable === '可部署') {
+    return getDomainBadgeClass('success');
+  }
+  if (deployable === '不可部署') {
+    return getDomainBadgeClass('error');
+  }
+  return getDomainBadgeClass('neutral');
 }
 
 async function loadCloudDashboardRows(): Promise<CloudDashboardInstanceItem[]> {

@@ -945,9 +945,9 @@ function buildExpirationInfo(chargeType: string, expiredTime: string): Expiratio
       dateText,
       relativeText: `到期 ${Math.abs(dayDiff)} 天`,
       progressPercent: Math.min(100, Math.max(14, Math.abs(dayDiff) / EXPIRING_SOON_DAYS * 100)),
-      badgeClass: 'bg-rose-500/12 text-rose-700',
-      fillClass: 'bg-rose-500',
-      textClass: 'text-rose-700',
+      badgeClass: 'bg-[var(--destructive-surface)] text-destructive',
+      fillClass: 'bg-[var(--destructive)]',
+      textClass: 'text-destructive',
     };
   }
 
@@ -956,9 +956,9 @@ function buildExpirationInfo(chargeType: string, expiredTime: string): Expiratio
       dateText,
       relativeText: `还剩 ${dayDiff} 天`,
       progressPercent: Math.max(14, dayDiff / EXPIRING_SOON_DAYS * 100),
-      badgeClass: 'bg-rose-500/12 text-rose-700',
-      fillClass: 'bg-rose-500',
-      textClass: 'text-rose-700',
+      badgeClass: 'bg-[var(--destructive-surface)] text-destructive',
+      fillClass: 'bg-[var(--destructive)]',
+      textClass: 'text-destructive',
     };
   }
 
@@ -966,9 +966,9 @@ function buildExpirationInfo(chargeType: string, expiredTime: string): Expiratio
     dateText,
     relativeText: `还剩 ${dayDiff} 天`,
     progressPercent: 100,
-    badgeClass: 'bg-emerald-500/12 text-emerald-700',
-    fillClass: 'bg-emerald-500',
-    textClass: 'text-emerald-700',
+    badgeClass: 'bg-[var(--success-surface)] text-[var(--success)]',
+    fillClass: 'bg-[var(--success)]',
+    textClass: 'text-[var(--success)]',
   };
 }
 
@@ -991,13 +991,13 @@ type DomainBadgeTone = 'success' | 'warning' | 'error' | 'neutral';
 
 function getDomainBadgeClass(tone: DomainBadgeTone): string {
   if (tone === 'success') {
-    return 'bg-emerald-500/12 text-emerald-700';
+    return 'bg-[var(--success-surface)] text-[var(--success)]';
   }
   if (tone === 'warning') {
-    return 'bg-amber-500/14 text-amber-700';
+    return 'bg-[var(--warning-surface)] text-[var(--warning-foreground)]';
   }
   if (tone === 'error') {
-    return 'bg-rose-500/12 text-rose-700';
+    return 'bg-[var(--destructive-surface)] text-destructive';
   }
   return 'bg-muted text-muted-foreground';
 }

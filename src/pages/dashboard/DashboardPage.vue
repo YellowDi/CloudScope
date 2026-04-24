@@ -334,19 +334,6 @@
                 :list-level-table="false"
                 :summary="domainTableSummary"
               >
-                <template #cell-buyStatus="{ row }">
-                  <span class="inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-foreground">
-                    {{ row.buyStatus }}
-                  </span>
-                </template>
-                <template #cell-autoRenew="{ row }">
-                  <span
-                    class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                    :class="getDomainAutoRenewBadgeClass(row)"
-                  >
-                    {{ row.autoRenew }}
-                  </span>
-                </template>
                 <template #cell-deployable="{ row }">
                   <span
                     class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
@@ -357,6 +344,12 @@
                 </template>
                 <template #cell-expirationDate="{ row }">
                   <div class="inline-flex w-max items-center gap-2 py-1 whitespace-nowrap">
+                    <span
+                      class="shrink-0 rounded-full px-2 py-0.5 text-[11px] leading-4 font-medium"
+                      :class="getDomainAutoRenewBadgeClass(row)"
+                    >
+                      {{ row.autoRenew }}
+                    </span>
                     <p class="shrink-0 text-[13px] leading-5 font-medium text-foreground">
                       {{ getExpirationInfo(row).dateText }}
                     </p>
@@ -560,7 +553,6 @@ const domainColumns: TableColumn[] = [
   { key: 'domainName', label: '域名' },
   { key: 'expirationDate', label: '到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
   { key: 'certEndTime', label: '证书到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
-  { key: 'autoRenew', label: '自动续费' },
   { key: 'certificateName', label: '证书名称' },
   { key: 'deployable', label: '是否可部署' },
   { key: 'validityPeriod', label: '证书有效期（月）', tone: 'muted' },

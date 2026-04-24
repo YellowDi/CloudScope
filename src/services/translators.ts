@@ -451,6 +451,14 @@ function normalizeCertificateStatus(statusCode: string, statusName?: string): st
   return CERTIFICATE_STATUS_MAP[statusCode] ?? (statusCode || '--');
 }
 
+function getDomainAccountKey(instance: Record<string, unknown>): string {
+  const numericAccountId = readNumber(instance, ['AccountId', 'accountId']);
+  return (
+    readString(instance, ['AccountUuid', 'accountUuid', 'AccountUUID', 'accountUUID']) ||
+    (numericAccountId !== undefined ? String(numericAccountId) : '')
+  );
+}
+
 function normalizeBooleanLabel(
   value: boolean | undefined,
   trueLabel = '是',
@@ -467,15 +475,26 @@ export function translateDomainDashboardList(
   response: unknown,
 ): DomainDashboardListResult {
   const { list: sourceList, total } = extractListPayload(response);
+  const expirationDateByDomain = new Map<string, string>();
+
+  for (const rawInstance of sourceList) {
+    const instance = asRecord(rawInstance) ?? {};
+    const domainName = readString(instance, ['DomainName', 'domainName']);
+    const expirationDate = readString(instance, ['ExpirationDate', 'expirationDate']);
+    if (!domainName || !expirationDate) {
+      continue;
+    }
+
+    const accountKey = getDomainAccountKey(instance);
+    expirationDateByDomain.set(`${accountKey}:${domainName}`, expirationDate);
+    if (!expirationDateByDomain.has(`:${domainName}`)) {
+      expirationDateByDomain.set(`:${domainName}`, expirationDate);
+    }
+  }
 
   const list = sourceList.map((rawInstance, index) => {
     const instance = asRecord(rawInstance) ?? {};
-    const numericAccountId = readNumber(instance, ['AccountId', 'accountId']);
-    const accountId =
-      readString(instance, ['AccountUuid', 'accountUuid', 'AccountUUID', 'accountUUID']) ||
-      (numericAccountId !== undefined
-        ? String(numericAccountId)
-        : '');
+    const accountId = getDomainAccountKey(instance);
     const domainId = readString(instance, ['DomainId', 'domainId']) || '--';
     const domainName = readString(instance, ['DomainName', 'domainName']) || '--';
     const accountName = readString(instance, ['AccountName', 'accountName']);
@@ -488,6 +507,11 @@ export function translateDomainDashboardList(
       certificateStatusCode,
       readString(instance, ['StatusName', 'statusName']),
     );
+    const parentDomainName = readString(instance, ['ParentDomainName', 'parentDomainName']);
+    const ownExpirationDate = readString(instance, ['ExpirationDate', 'expirationDate']);
+    const inheritedExpirationDate = parentDomainName
+      ? expirationDateByDomain.get(`${accountId}:${parentDomainName}`) ?? expirationDateByDomain.get(`:${parentDomainName}`) ?? ''
+      : '';
 
     return {
       rowId: `${accountId || 'unknown'}:${domainId || domainName || index}`,
@@ -513,10 +537,10 @@ export function translateDomainDashboardList(
       certEndTime: readString(instance, ['CertEndTime', 'certEndTime']),
       tld: readString(instance, ['Tld', 'tld']) || '--',
       codeTld: readString(instance, ['CodeTld', 'codeTld']) || '--',
-      parentDomainName: readString(instance, ['ParentDomainName', 'parentDomainName']) || '--',
+      parentDomainName: parentDomainName || '--',
       isPremium: normalizeBooleanLabel(isPremium),
       creationDate: readString(instance, ['CreationDate', 'creationDate']),
-      expirationDate: readString(instance, ['ExpirationDate', 'expirationDate']),
+      expirationDate: ownExpirationDate || inheritedExpirationDate,
     };
   });
 

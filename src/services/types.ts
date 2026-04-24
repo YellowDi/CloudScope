@@ -184,7 +184,16 @@ export interface CloudInstanceRow {
 export interface TencentCvmInstance {
   InstanceId: string;
   InstanceName: string;
-  InstanceState: 'RUNNING' | 'STOPPED' | 'PENDING';
+  InstanceState:
+    | 'RUNNING'
+    | 'SHUTDOWN'
+    | 'STOPPED'
+    | 'PENDING'
+    | 'STARTING'
+    | 'STOPPING'
+    | 'REBOOTING'
+    | 'LAUNCH_FAILED'
+    | 'TERMINATING';
   PublicIpAddresses: string[];
   PrivateIpAddresses: string[];
   CPU: number;

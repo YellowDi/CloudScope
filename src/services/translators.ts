@@ -17,8 +17,14 @@ import type {
 
 const CVM_STATUS_MAP: Record<string, string> = {
   RUNNING: '运行中',
+  SHUTDOWN: '已关机',
   STOPPED: '已停止',
   PENDING: '启动中',
+  STARTING: '启动中',
+  STOPPING: '关机中',
+  REBOOTING: '重启中',
+  LAUNCH_FAILED: '启动失败',
+  TERMINATING: '销毁中',
 };
 
 const DB_STATUS_MAP: Record<string, string> = {

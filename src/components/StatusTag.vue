@@ -14,8 +14,14 @@ const labelMap: Record<string, string> = {
   connected: '已连接',
   error: '异常',
   running: '运行中',
+  shutdown: '已关机',
   stopped: '已停止',
   pending: '启动中',
+  starting: '启动中',
+  stopping: '关机中',
+  rebooting: '重启中',
+  launch_failed: '启动失败',
+  terminating: '销毁中',
   isolated: '隔离中',
 };
 
@@ -26,7 +32,16 @@ const tone = computed(() => {
   if (normalized.includes('运行') || normalized.includes('connected')) {
     return 'success';
   }
-  if (normalized.includes('启动') || normalized.includes('创建') || normalized.includes('pending')) {
+  if (
+    normalized.includes('启动') ||
+    normalized.includes('创建') ||
+    normalized.includes('重启') ||
+    normalized.includes('pending') ||
+    normalized.includes('starting') ||
+    normalized.includes('stopping') ||
+    normalized.includes('rebooting') ||
+    normalized.includes('terminating')
+  ) {
     return 'warning';
   }
   return 'error';

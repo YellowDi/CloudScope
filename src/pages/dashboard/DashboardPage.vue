@@ -616,12 +616,16 @@ const visibleDomainColumns = computed<TableColumn[]>(() =>
   isAllAccountsView.value ? domainColumns : domainColumns.filter((column) => column.key !== 'account'),
 );
 
-const cvmStatusOptions = [
-  { label: '全部状态', value: 'all' },
-  { label: '运行中', value: 'RUNNING' },
-  { label: '已停止', value: 'STOPPED' },
-  { label: '启动中', value: 'PENDING' },
-];
+const cvmStatusOptions = computed(() => {
+  const entries = Array.from(new Map(
+    cvmRows.value.map((item) => [item.statusCode, item.status] as const),
+  ).entries());
+
+  return [
+    { label: '全部状态', value: 'all' },
+    ...entries.map(([value, label]) => ({ label, value })),
+  ];
+});
 
 const databaseStatusOptions = computed(() => {
   const entries = Array.from(new Map(

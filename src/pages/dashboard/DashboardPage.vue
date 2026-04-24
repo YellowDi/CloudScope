@@ -551,22 +551,14 @@ const databaseColumns: TableColumn[] = [
 const domainColumns: TableColumn[] = [
   { key: 'account', label: '云账号', filterType: 'text', tone: 'muted' },
   { key: 'domainName', label: '域名' },
-  { key: 'domainId', label: '域名 ID', tone: 'muted' },
   { key: 'expirationDate', label: '到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
-  { key: 'buyStatus', label: '购买状态' },
+  { key: 'certEndTime', label: '证书到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
   { key: 'autoRenew', label: '自动续费' },
   { key: 'certificateName', label: '证书名称' },
   { key: 'certificateStatus', label: '证书状态' },
-  { key: 'certEndTime', label: '证书到期时间', tone: 'muted', headerClass: '!w-auto', cellClass: '!w-auto' },
-  { key: 'productZhName', label: '证书签发方', tone: 'muted' },
-  { key: 'certificateType', label: '证书类型', tone: 'muted' },
   { key: 'deployable', label: '是否可部署' },
-  { key: 'domain', label: '主绑定域名', tone: 'muted' },
-  { key: 'subjectAltName', label: '其他绑定域名', tone: 'muted', cellRenderer: { kind: 'array', separator: '、' } },
   { key: 'validityPeriod', label: '证书有效期（月）', tone: 'muted' },
   { key: 'certBeginTime', label: '证书生效时间', tone: 'muted' },
-  { key: 'isPremium', label: '溢价域名' },
-  { key: 'creationDate', label: '注册时间', tone: 'muted' },
 ];
 
 const isAllAccountsView = computed(() => activeScope.value === ALL_ACCOUNTS_SCOPE);

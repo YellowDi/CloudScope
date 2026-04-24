@@ -90,7 +90,7 @@
         <AlertDescription>{{ errorMessage }}</AlertDescription>
       </Alert>
 
-      <div class="grid grid-cols-2 gap-2 md:gap-2.5 xl:grid-cols-6">
+      <div class="grid grid-cols-3 gap-2 md:gap-2.5 min-[1100px]:grid-cols-6 max-[359px]:grid-cols-2">
         <StatCard label="CVM 总数" :value="formatCount(stats.cvmTotal)" meta="腾讯云云服务器实例" :loading="summaryCardsLoading" />
         <StatCard label="数据库总数" :value="formatCount(stats.databaseTotal)" meta="TencentDB 实例" :loading="summaryCardsLoading" />
         <StatCard label="域名总数" :value="formatCount(stats.domainTotal)" meta="已添加域名看板实例" :loading="summaryCardsLoading" />

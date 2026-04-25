@@ -5,13 +5,17 @@
       class="sticky top-0 z-20 bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80"
     >
       <div class="mx-auto flex min-h-16 w-full max-w-6xl items-center gap-3 py-3">
-        <div class="flex min-w-0 shrink-0 items-center gap-3">
+        <RouterLink
+          to="/dashboard"
+          aria-label="返回总览页面"
+          class="flex min-w-0 shrink-0 items-center gap-3 rounded-md outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
           <img src="/logo.png" alt="CloudScope logo" class="h-9 w-9 shrink-0 rounded-md object-cover" />
           <div class="hidden min-w-0 sm:block">
             <p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">CloudScope</p>
             <h1 class="truncate text-sm font-semibold tracking-tight text-foreground">云资源监控看板</h1>
           </div>
-        </div>
+        </RouterLink>
 
         <div class="min-w-0 flex-1 overflow-visible">
           <NavigationMenu

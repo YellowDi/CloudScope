@@ -3,10 +3,11 @@ import type { Pinia } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
-import AccountsPage from '@/pages/accounts/AccountsPage.vue';
-import DashboardPage from '@/pages/dashboard/DashboardPage.vue';
-import LoginPage from '@/pages/login/LoginPage.vue';
 import { useAuthStore } from '@/store/auth';
+
+const LoginPage = () => import('@/pages/login/LoginPage.vue');
+const DashboardPage = () => import('@/pages/dashboard/DashboardPage.vue');
+const AccountsPage = () => import('@/pages/accounts/AccountsPage.vue');
 
 export function createAppRouter(pinia: Pinia) {
   const router = createRouter({

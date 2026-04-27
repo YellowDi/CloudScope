@@ -351,10 +351,12 @@ watch(
         >
           <label
             class="border-input dark:bg-input/30 flex h-9 items-center rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 md:text-sm"
+            data-slot="input-group"
           >
             <input
               :value="value.startDate"
               type="text"
+              data-slot="input-group-control"
               placeholder="开始日期..."
               class="w-full border-0 bg-transparent p-0 text-[12px] text-foreground outline-none placeholder:text-muted-foreground"
               @input="handleBetweenDateInput('start', ($event.target as HTMLInputElement).value)"
@@ -374,10 +376,12 @@ watch(
 
           <label
             class="border-input dark:bg-input/30 flex h-9 items-center rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 md:text-sm"
+            data-slot="input-group"
           >
             <input
               :value="value.endDate"
               type="text"
+              data-slot="input-group-control"
               placeholder="结束日期..."
               class="w-full border-0 bg-transparent p-0 text-[12px] text-foreground outline-none placeholder:text-muted-foreground"
               @input="handleBetweenDateInput('end', ($event.target as HTMLInputElement).value)"
@@ -404,10 +408,13 @@ watch(
                 ? 'border-input bg-transparent dark:bg-input/30 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
                 : 'cursor-not-allowed border-border bg-muted opacity-70',
             ]"
+            data-slot="input-group"
+            :data-disabled="operatorNeedsDateInput(value.operator) ? undefined : ''"
           >
             <input
               :value="formatDisplayValue()"
               type="text"
+              data-slot="input-group-control"
               :disabled="!operatorNeedsDateInput(value.operator)"
               placeholder="选择或输入日期..."
               :class="[

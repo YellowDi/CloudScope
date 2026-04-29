@@ -8,15 +8,12 @@
           <CardTitle class="text-3xl tracking-tight">腾讯云资源监控看板</CardTitle>
         </div>
       </div>
-      <p class="font-mono text-xs uppercase tracking-wide text-muted-foreground">登录保护</p>
-      <CardDescription>请输入账号凭据登录系统。</CardDescription>
     </CardHeader>
 
     <CardContent>
       <form class="grid gap-4" @submit.prevent="handleSubmit">
         <BaseInput v-model="username" label="用户名" placeholder="请输入用户名" autocomplete="username" />
         <BaseInput v-model="password" label="密码" type="password" placeholder="请输入密码" autocomplete="current-password" />
-        <p v-if="errorMessage" class="text-sm text-destructive">{{ errorMessage }}</p>
         <BaseButton label="登录" type="submit" block :loading="authStore.loading" loading-text="登录中" />
       </form>
     </CardContent>
@@ -28,19 +25,19 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseInput from '@/components/BaseInput.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAppStore } from '@/store/app';
 import { useAuthStore } from '@/store/auth';
 
 const router = useRouter();
+const appStore = useAppStore();
 const authStore = useAuthStore();
 const username = ref('');
 const password = ref('');
-const errorMessage = ref('');
 
 async function handleSubmit() {
-  errorMessage.value = '';
   if (!username.value.trim() || !password.value.trim()) {
-    errorMessage.value = '用户名和密码不能为空';
+    appStore.setNotice('用户名和密码不能为空', 'error');
     return;
   }
 
@@ -48,7 +45,7 @@ async function handleSubmit() {
     await authStore.login(username.value, password.value);
     await router.push('/dashboard');
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '登录失败';
+    appStore.setNotice(error instanceof Error ? error.message : '登录失败', 'error');
   }
 }
 </script>

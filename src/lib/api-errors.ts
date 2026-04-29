@@ -21,7 +21,22 @@ export class ApiError extends Error {
   }
 }
 
-const ERROR_MESSAGE_KEYS = ['message', 'msg', 'error', 'detail', 'title', 'reason', 'description'] as const;
+const ERROR_MESSAGE_KEYS = [
+  'message',
+  'Message',
+  'msg',
+  'Msg',
+  'error',
+  'Error',
+  'detail',
+  'Detail',
+  'title',
+  'Title',
+  'reason',
+  'Reason',
+  'description',
+  'Description',
+] as const;
 const MAX_ERROR_MESSAGE_DEPTH = 4;
 
 function normalizeErrorText(value: unknown) {

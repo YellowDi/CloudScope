@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+import { extractApiErrorText } from '@/lib/api-errors';
 import { login as loginService } from '@/services/auth';
 import { removeStorage, readStorage, writeStorage } from '@/utils/storage';
 
@@ -23,10 +24,21 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     try {
       const response = await loginService(username, password);
-      token.value = response.token;
-      user.value = response.user;
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, response.token);
-      writeStorage(USER_STORAGE_KEY, response.user);
+      const loginToken = response.Token ?? response.token;
+
+      if (!loginToken) {
+        throw new Error(extractApiErrorText(response) ?? '登录成功但未返回 Token');
+      }
+
+      token.value = loginToken;
+      user.value = response.user ?? null;
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, loginToken);
+
+      if (response.user) {
+        writeStorage(USER_STORAGE_KEY, response.user);
+      } else {
+        removeStorage(USER_STORAGE_KEY);
+      }
     } finally {
       loading.value = false;
     }

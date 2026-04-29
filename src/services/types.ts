@@ -5,8 +5,9 @@ export interface AuthUser {
 }
 
 export interface LoginResponse {
-  token: string;
-  user: AuthUser;
+  Token?: string;
+  token?: string;
+  user?: AuthUser;
 }
 
 export interface CloudAccount {

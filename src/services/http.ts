@@ -1,6 +1,6 @@
 import type { RequestOptions } from './types';
 import { ApiError, extractApiErrorText } from '@/lib/api-errors';
-import { TOKEN_STORAGE_KEY } from '@/store/auth';
+import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '@/store/auth';
 
 const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
@@ -71,6 +71,10 @@ export async function request<TResponse, TBody = unknown>(
     const payload = await parseResponse(response);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+      }
+
       throw new ApiError(extractApiErrorText(payload) ?? `请求失败 (${response.status})`, {
         status: response.status,
         code: getErrorField(payload, 'code'),

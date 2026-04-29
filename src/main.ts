@@ -3,7 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import { createAppRouter } from './router';
 import { useAccountsStore } from './store/accounts';
-import { useAuthStore } from './store/auth';
+import { AUTH_EXPIRED_EVENT, useAuthStore } from './store/auth';
 import { useThemeStore } from './store/theme';
 import './assets/index.css';
 import 'remixicon/fonts/remixicon.css';
@@ -22,6 +22,14 @@ const themeStore = useThemeStore(pinia);
 authStore.restore();
 accountsStore.restore();
 themeStore.restore();
+
+window.addEventListener(AUTH_EXPIRED_EVENT, () => {
+  authStore.logout();
+
+  if (router.currentRoute.value.path !== '/login') {
+    void router.push('/login');
+  }
+});
 
 app.use(router);
 app.mount('#app');

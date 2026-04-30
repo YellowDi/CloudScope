@@ -8,17 +8,9 @@
       >
         <CircleUserRound class="h-3.5 w-3.5 shrink-0" />
         <span class="sr-only">打开用户菜单</span>
-        <span class="hidden items-center whitespace-nowrap md:inline-flex">
-          <span class="font-medium">{{ user?.name ?? '访客' }}</span>
-        </span>
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" class="w-56">
-      <DropdownMenuLabel>{{ user?.name ?? '访客' }}</DropdownMenuLabel>
-      <DropdownMenuLabel class="pt-0 text-xs font-normal text-muted-foreground">
-        {{ user?.role ?? '未登录' }}
-      </DropdownMenuLabel>
-      <DropdownMenuSeparator />
       <div class="flex items-center justify-between px-2 py-1.5">
         <div class="space-y-0.5">
           <p class="text-sm font-medium text-foreground">暗黑模式</p>
@@ -42,7 +34,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -53,7 +44,6 @@ import { useThemeStore } from '@/store/theme';
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
 const router = useRouter();
-const user = authStore.user;
 
 function handleThemeChange(value: boolean) {
   themeStore.setDarkMode(value);

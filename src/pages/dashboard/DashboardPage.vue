@@ -484,7 +484,7 @@ type ExpirationInfo = {
 };
 
 const ALL_ACCOUNTS_SCOPE = 'all';
-const DASHBOARD_PAGE_SIZE = 10;
+const DASHBOARD_PAGE_SIZE = 50;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const EXPIRING_SOON_DAYS = 30;
 const DEFAULT_EXPIRATION_INFO: ExpirationInfo = {

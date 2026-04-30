@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuSubTriggerProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
+import { reactiveOmit } from '@vueuse/core'
 import { cn } from '@/lib/utils'
 import { ChevronRight } from 'lucide-vue-next'
 import {
@@ -8,24 +9,20 @@ import {
 
   useForwardProps,
 } from 'reka-ui'
-import { computed } from 'vue'
 
-const props = defineProps<DropdownMenuSubTriggerProps & { class?: HTMLAttributes['class'] }>()
+const props = defineProps<DropdownMenuSubTriggerProps & { class?: HTMLAttributes['class'], inset?: boolean }>()
 
-const delegatedProps = computed(() => {
-  const { class: _, ...delegated } = props
-
-  return delegated
-})
-
+const delegatedProps = reactiveOmit(props, 'class', 'inset')
 const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
 <template>
   <DropdownMenuSubTrigger
+    data-slot="dropdown-menu-sub-trigger"
+    :data-inset="inset ? '' : undefined"
     v-bind="forwardedProps"
     :class="cn(
-      'flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent',
+      'flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent data-[inset]:pl-8',
       props.class,
     )"
   >

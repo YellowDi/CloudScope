@@ -34,7 +34,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
-function handleUpdate(value: string | undefined) {
-  emit('update:modelValue', value ?? props.modelValue);
+function handleUpdate(value: unknown) {
+  emit('update:modelValue', typeof value === 'string' ? value : props.modelValue);
 }
 </script>

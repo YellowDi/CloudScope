@@ -112,7 +112,7 @@
               <Input
                 v-model="cvmSearchKeyword"
                 class="h-9 min-w-0 flex-1"
-                placeholder="搜索实例 ID、名称、IP、配置、可用区、备注"
+                placeholder="搜索..."
               />
               <div class="w-22 shrink-0 sm:w-36">
                 <BaseSelect
@@ -127,7 +127,7 @@
               <Input
                 v-model="databaseSearchKeyword"
                 class="h-9 min-w-0 flex-1"
-                placeholder="搜索实例 ID、名称、类型、IP、可用区"
+                placeholder="搜索..."
               />
               <div class="w-22 shrink-0 sm:w-32">
                 <BaseSelect
@@ -148,7 +148,7 @@
               <Input
                 v-model="domainSearchKeyword"
                 class="h-9 min-w-0 flex-1"
-                placeholder="搜索域名、证书、域名 ID、账号、后缀"
+                placeholder="搜索..."
               />
               <div class="w-26 shrink-0 sm:w-36">
                 <BaseSelect

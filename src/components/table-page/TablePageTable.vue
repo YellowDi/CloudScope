@@ -1127,10 +1127,24 @@ function getStickyTopOffset() {
   }
 
   const wrapperStyles = window.getComputedStyle(tableWrapperRef.value)
+  const wrapperTableOffset = Number.parseFloat(wrapperStyles.getPropertyValue("--table-header-sticky-top"))
+
+  if (!Number.isNaN(wrapperTableOffset)) {
+    return wrapperTableOffset
+  }
+
   const wrapperOffset = Number.parseFloat(wrapperStyles.getPropertyValue("--table-page-sticky-top"))
 
   if (!Number.isNaN(wrapperOffset)) {
     return wrapperOffset
+  }
+
+  const rootTableOffset = Number.parseFloat(
+    window.getComputedStyle(document.documentElement).getPropertyValue("--table-header-sticky-top"),
+  )
+
+  if (!Number.isNaN(rootTableOffset)) {
+    return rootTableOffset
   }
 
   const rootOffset = Number.parseFloat(
@@ -1353,17 +1367,12 @@ function syncStickyHeaderState(headerCells?: HTMLElement[]) {
   const stickyLine = getScrollRootTop() + getStickyTopOffset()
   const headerHeight = resolvedHeaderCells[0]?.getBoundingClientRect().height ?? 41
 
-  stickyHeaderLeft.value = props.listLevelTable
-    ? wrapperRect.left
-    : wrapperRect.left - embeddedViewportExpandLeft.value
+  stickyHeaderLeft.value = wrapperRect.left
   stickyHeaderTop.value = stickyLine
   stickyTableWidth.value = tableRef.value.scrollWidth
   stickyScrollLeft.value = tableWrapperRef.value.scrollLeft
   setStickyColumnWidths(resolvedHeaderCells.map(cell => Math.ceil(cell.getBoundingClientRect().width)))
-  const wrapperWidth = props.listLevelTable
-    ? wrapperRect.width
-    : wrapperRect.width + embeddedViewportExpandLeft.value + embeddedViewportExpandRight.value
-  stickyHeaderWidth.value = Math.ceil(wrapperWidth)
+  stickyHeaderWidth.value = Math.ceil(wrapperRect.width)
   stickyHeaderActive.value = wrapperRect.top <= stickyLine && wrapperRect.bottom > stickyLine + headerHeight
 }
 

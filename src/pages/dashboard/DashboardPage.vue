@@ -1,9 +1,6 @@
 <template>
   <section class="-mt-8 mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4">
-    <header
-      class="sticky z-10 flex flex-col gap-4 bg-background/95 py-2 backdrop-blur supports-backdrop-filter:bg-background/80"
-      :style="{ top: 'var(--table-page-sticky-top)' }"
-    >
+    <header class="flex flex-col gap-4 bg-background py-2">
       <div class="flex flex-col gap-1.5 lg:flex-row lg:flex-nowrap lg:items-baseline lg:gap-2">
         <h1 class="shrink-0 leading-none font-semibold tracking-tight text-foreground text-[24px] sm:text-[28px] xl:text-[32px]">
             资源总览

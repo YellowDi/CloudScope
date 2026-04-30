@@ -2,7 +2,8 @@ import type { RequestOptions } from './types';
 import { ApiError, extractApiErrorText } from '@/lib/api-errors';
 import { AUTH_EXPIRED_EVENT, TOKEN_STORAGE_KEY } from '@/store/auth';
 
-const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
+const DEFAULT_API_BASE_URL = 'https://cloudscope.qfoll.com/api';
+const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL);
 
 function normalizeBaseUrl(value?: string) {
   return value?.trim().replace(/\/+$/, '') ?? '';

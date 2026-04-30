@@ -97,12 +97,17 @@
           description="后端当前没有返回已添加的腾讯云账号。"
         />
 
-        <div v-else class="columns-1 gap-x-4 md:columns-2 lg:columns-3">
-          <Card
-            v-for="account in rows"
-            :key="account.id"
-            class="mb-4 block break-inside-avoid overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 shadow-none transition-none dark:border-zinc-800 dark:bg-zinc-900"
+        <div v-else class="grid gap-4 md:grid-cols-3 md:items-start">
+          <div
+            v-for="(column, columnIndex) in accountColumns"
+            :key="columnIndex"
+            class="grid gap-4"
           >
+            <Card
+              v-for="account in column"
+              :key="account.id"
+              class="min-w-0 overflow-hidden rounded-[20px] border border-stone-200 bg-stone-50 shadow-none transition-none dark:border-zinc-800 dark:bg-zinc-900"
+            >
             <div class="rounded-[16px] bg-white px-4 py-4 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_5px_10px_rgba(17,24,39,0.05)] dark:bg-zinc-950 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_18px_-14px_rgba(0,0,0,0.55)]">
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
@@ -245,7 +250,8 @@
                 </Button>
               </div>
             </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
 
@@ -268,19 +274,7 @@
             <BaseInput
               v-model="form.region"
               label="地域"
-              placeholder="如：ap-guangzhou"
-              autocomplete="off"
-            />
-            <BaseInput
-              v-model="form.secretId"
-              label="SecretId"
-              placeholder="请输入腾讯云 SecretId"
-              autocomplete="off"
-            />
-            <BaseInput
-              v-model="form.secretKey"
-              label="SecretKey"
-              placeholder="请输入腾讯云 SecretKey"
+              placeholder="如：ap-shanghai"
               autocomplete="off"
             />
 
@@ -616,7 +610,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { ChevronDown, LoaderCircle, LogIn, PencilLine, Users } from 'lucide-vue-next';
 import BaseButton from '@/components/BaseButton.vue';
 import BaseInput from '@/components/BaseInput.vue';
@@ -698,7 +692,7 @@ const quickLoginPasswordValue = ref('');
 const quickLoginPasswordCopying = ref(false);
 const form = reactive({
   name: '',
-  region: 'ap-guangzhou',
+  region: 'ap-shanghai',
   secretId: '',
   secretKey: '',
   status: '1',
@@ -708,6 +702,17 @@ const subAccountForm = reactive({
   password: '',
 });
 const rows = computed(() => accountsStore.accountList);
+const accountMasonryColumnCount = ref(1);
+const accountColumns = computed(() => {
+  const columnCount = accountMasonryColumnCount.value;
+  const columns = Array.from({ length: columnCount }, () => [] as CloudAccount[]);
+
+  rows.value.forEach((account, index) => {
+    columns[index % columnCount].push(account);
+  });
+
+  return columns;
+});
 const isEditMode = computed(() => dialogMode.value === 'edit');
 const dialogBusy = computed(
   () => submitting.value || deleting.value,
@@ -758,6 +763,27 @@ const {
   handleScroll: handleAccountCategoryTabsScroll,
 } = useHorizontalOverflowMask({
   watchSource: computed(() => accountCategoryTabs.map((tab) => `${tab.value}:${tab.label}`)),
+});
+
+let accountMasonryMediaQuery: MediaQueryList | null = null;
+
+function syncAccountMasonryColumnCount() {
+  accountMasonryColumnCount.value = accountMasonryMediaQuery?.matches ? 3 : 1;
+}
+
+onMounted(() => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  accountMasonryMediaQuery = window.matchMedia('(min-width: 768px)');
+  syncAccountMasonryColumnCount();
+  accountMasonryMediaQuery.addEventListener('change', syncAccountMasonryColumnCount);
+});
+
+onBeforeUnmount(() => {
+  accountMasonryMediaQuery?.removeEventListener('change', syncAccountMasonryColumnCount);
+  accountMasonryMediaQuery = null;
 });
 
 watch(rows, (accounts) => {
@@ -1091,7 +1117,7 @@ function resetForm() {
   formError.value = '';
   deleteConfirming.value = false;
   form.name = '';
-  form.region = 'ap-guangzhou';
+  form.region = 'ap-shanghai';
   form.secretId = '';
   form.secretKey = '';
   form.status = '1';
